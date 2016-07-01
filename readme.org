@@ -1,0 +1,61 @@
+* Things are too complicated
+** Things I don't care about or want
+   - a local webserver
+   - multiple input formats
+   - comments
+   - cross-post-to-twitter
+   - tags
+
+* Sometimes you just want to /know/ how something works
+** Things I do want
+   - plaintext
+   - hierarchical URL structure (to match the existing)
+     - e.g. (~/2016/post-title~)
+   - RSS/Atom feed generation
+
+* Sometimes you just gotta write it yourself
+** Proposed interface
+   #+BEGIN_EXAMPLE 
+   $ static gen
+   ... compile plaintext to HTML
+   ... fit HTML to templates
+   ... write HTML to output directory
+   ... generate ATOM/RSS feed and write to output directory
+   ... (nice to have) generate an index/archive/sitemap
+   #+END_EXAMPLE
+
+*** nice to have
+   #+BEGIN_EXAMPLE 
+   $ static new
+   ... title? > A New Post
+   ... generate file in correct directory (based on year)
+   ...    created: 2016/a-new-post.md
+   ... apply appropriate metadata to post (Title, Date)
+   ...    Title: A New Post
+   ...    Date:  2016-06-29
+   #+END_EXAMPLE
+
+   #+BEGIN_EXAMPLE 
+   $ static config
+   ... blog name? > _____
+   ... blog URL?  > _____
+   ... author?    > _____
+   #+END_EXAMPLE
+   
+And that's basically it! I trust myself to verify and ~rsync~ the output as
+needed and can fiddle with things like caching, forcing re-builds later.
+
+** THIS IS NOT A BIG DEAL
+
+* Probable Technology Choices
+  - [[http://jinja.pocoo.org/][Jinja2]] for templating
+    - including ATOM/RSS
+      - I'd rather limit external libraries/technology and simply validate the
+        generated feed than introduce more surface area to the project
+        - [[https://tools.ietf.org/html/rfc4287][ATOM RFC]]
+        - [[http://alexanderle.com/blog/2012/create-an-rss-feed-from-scratch.html][example]]
+        - [[https://gist.github.com/billygoat/5429355][example]]
+        - [[https://github.com/hypothesis/h/blob/master/h/templates/atom.xml.jinja2][example]]
+  - [[https://github.com/lepture/mistune][Mistune for markdown parsing]]
+  - Python 3
+    - 2 is dead, let it go.
