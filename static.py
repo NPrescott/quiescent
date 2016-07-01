@@ -60,5 +60,10 @@ class StaticGenerator():
             markup = self.markdown(post_body)
             templated_html = self.templatize_post(markup)
             _outdir = re.sub(posts_dir, output_dir, directory)
-            out_path = os.path.join(_outdir, filename)
+            _outfile = re.sub('.md', '.html', filename)
+            out_path = os.path.join(_outdir, _outfile)
             self.write_output_file(templated_html, out_path)
+
+if __name__ == '__main__':
+    s = StaticGenerator()
+    s.create_posts()
