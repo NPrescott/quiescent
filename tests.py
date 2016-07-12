@@ -30,9 +30,12 @@ class SlugifyTests(unittest.TestCase):
         self.assertEqual(slugify(input_string), "this-is-a-title")
 
     def test_punctuation(self):
-        input_string = "Contains: 3? illegal characters!"
-        self.assertEqual(slugify(input_string),
+        first_string = "Contains: 3? illegal characters!"
+        self.assertEqual(slugify(first_string),
                          "contains-3-illegal-characters")
+
+        second_string = "What is 1% of 20% of a question mark?"
+        self.assertEqual(slugify(second_string), "what-is-1-of-20-of-a-question-mark")
         
     def test_quotes(self):
         input_string = "\"quoted phrase\" string's got an apostrophe"
@@ -44,8 +47,8 @@ class SlugifyTests(unittest.TestCase):
         self.assertEqual(slugify(input_string),
                          "this-would-be-pretty-braindead")
 
-    def test_unicode_failure(self):
-        first_string = "düsseldorf is a city in Germany"
+    def test_unicode(self):
+        first_string = "Düsseldorf is a city in Germany"
         self.assertEqual(slugify(first_string), "d%C3%BCsseldorf-is-a-city-in-germany")
 
         second_string = "Let Over λ"
