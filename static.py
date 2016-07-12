@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 from datetime import datetime
 import json
 import sys
@@ -47,13 +49,15 @@ class StaticGenerator():
         if len(_split_contents) < 2:
             raise SyntaxError("Failed to parse Post header")
         header_string, post_obj['body'] = _split_contents
-        kv_string = header_string.strip().split('\n')
+        kv_string = header_string.lower().strip().split('\n')
         post_obj['header'] = {k: v.strip() for k,v in (i.split(':', maxsplit=1)
                                            for i in kv_string)}
         if 'date' in post_obj['header']:
             post_obj['header']['date'] = datetime.strptime(post_obj['header']['date'], '%Y-%m-%d')
         return post_obj
 
+    # TODO: split this out across more separate functions, currently too
+    # entangled to test effectively
     def create_posts(self):
         posts_dir = self.config['posts_dir']
         output_dir = self.config['output_dir']
@@ -84,12 +88,38 @@ class StaticGenerator():
                                                                   '%Y-%m-%d')),
                                 reverse=True)
 
-    def create_feed(self):
-        raise NotImplementedError
+    def create_feed(self, post_limit=10):
+        env = Environment(loader=PackageLoader('static', 'templates'))
+        template = env.get_template('atom_feed.template')        
+        recent_posts = self.all_posts[:post_limit]
+        return template.render(recent_posts=recent_posts, config=self.config)
 
     def create_archive(self):
         raise NotImplementedError
 
+def slugify(text):
+    '''Simple substitution to build post slugs. No guarantee it'll work robustly
+    with some crazier unicode chars. Suggested work-around: don't use unicode
+    chars in post titles.
+
+    Examples:
+    >>> slugify("Wow, 2015 has \"Come and Gone\" already! It's amazing.")
+    'wow-2015-has-come-and-gone-already-its-amazing'
+
+    >>> slugify("Internal-hyphens should be A-OKAY, -- even multiple.")
+    'internal-hyphens-should-be-a-okay-even-multiple'
+
+    '''
+    QUOTES = re.compile(r'[\"\']')
+    MULTIPLE_DASH = re.compile(r'-+')
+    NOT_ALPHA = re.compile(r'[^A-Za-z0-9]')
+
+    _string = QUOTES.sub('', text)
+    _string = NOT_ALPHA.sub('-', _string)
+    _string = MULTIPLE_DASH.sub('-', _string)
+    output_string = _string.strip('-').lower()
+    return output_string
+
 if __name__ == '__main__':
     s = StaticGenerator()
-    s.create_posts()
+    # s.create_posts()
