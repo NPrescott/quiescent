@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 from datetime import datetime
+import urllib
 import json
 import sys
 import os
@@ -98,26 +99,28 @@ class StaticGenerator():
         raise NotImplementedError
 
 def slugify(text):
-    '''Simple substitution to build post slugs. No guarantee it'll work robustly
-    with some crazier unicode chars. Suggested work-around: don't use unicode
-    chars in post titles.
+    '''Build hyphenated post slugs from "unsafe" text. RFC3986 requires percent
+    encoding for UCS/unicode points.
 
     Examples:
     >>> slugify("Wow, 2015 has \"Come and Gone\" already! It's amazing.")
     'wow-2015-has-come-and-gone-already-its-amazing'
 
-    >>> slugify("Internal-hyphens should be A-OKAY, -- even multiple.")
-    'internal-hyphens-should-be-a-okay-even-multiple'
+    >>> slugify("λ is a lambda")
+    '%CE%BB-is-a-lambda'
 
     '''
     QUOTES = re.compile(r'[\"\']')
     MULTIPLE_DASH = re.compile(r'-+')
-    NOT_ALPHA = re.compile(r'[^A-Za-z0-9]')
+    NOT_CHAR = re.compile(r'[\W]')
 
     _string = QUOTES.sub('', text)
-    _string = NOT_ALPHA.sub('-', _string)
+    _string = _string.lower()
+    _string = NOT_CHAR.sub('-', _string)
     _string = MULTIPLE_DASH.sub('-', _string)
-    output_string = _string.strip('-').lower()
+    _string = urllib.parse.quote(_string, safe='-')
+    output_string = _string.strip('-')
+
     return output_string
 
 if __name__ == '__main__':
