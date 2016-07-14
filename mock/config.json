@@ -3,5 +3,6 @@
   "domain": "www.example.com",
   "output_dir": "mock/output",
   "posts_dir": "mock/posts",
-  "templates_dir": "mock/templates"
+  "templates_dir": "mock/templates",
+  "date_format": "%Y-%m-%d"
 }

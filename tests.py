@@ -1,7 +1,7 @@
 import unittest
 import datetime
 
-from static import StaticGenerator
+from static import StaticGenerator, slugify
 
 
 class StaticGeneratorTests(unittest.TestCase):
@@ -63,13 +63,43 @@ class StaticGeneratorTests(unittest.TestCase):
     def test_post_template(self):
         post = {'title': 'amazing title',
                 'body': '<p>some long text</p>'}
-        result_html = self.s.templatize_post(post, self.config['templates_dir'], 'post.html')
+        result_html = self.s.templatize_post(post)
         self.assertEqual(result_html, 'amazing title\n\n<p>some long text</p>')
 
     def test_post_template_has_date(self):
         post = {'title': 'amazing title',
                 'date': datetime.datetime(2016, 1, 1, 0, 0),
                 'body': '<p>some long text</p>'}
-        result_html = self.s.templatize_post(post, self.config['templates_dir'], 'post.html')
+        result_html = self.s.templatize_post(post)
         self.assertEqual(result_html,
                          'amazing title\n\n2016-01-01\n\n<p>some long text</p>')
+
+class SlugifyTests(unittest.TestCase):
+    def test_lowercase(self):
+        input_string = "This Is A Title"
+        self.assertEqual(slugify(input_string), "this-is-a-title")
+
+    def test_punctuation(self):
+        first_string = "Contains: 3? illegal characters!"
+        self.assertEqual(slugify(first_string),
+                         "contains-3-illegal-characters")
+
+        second_string = "What is 1% of 20% of a question mark?"
+        self.assertEqual(slugify(second_string), "what-is-1-of-20-of-a-question-mark")
+        
+    def test_quotes(self):
+        input_string = "\"quoted phrase\" string's got an apostrophe"
+        self.assertEqual(slugify(input_string),
+                         "quoted-phrase-strings-got-an-apostrophe")
+
+    def test_trailing_hyphens(self):
+        input_string = "This would be pretty braindead--"
+        self.assertEqual(slugify(input_string),
+                         "this-would-be-pretty-braindead")
+
+    def test_unicode(self):
+        first_string = "Düsseldorf is a city in Germany"
+        self.assertEqual(slugify(first_string), "d%C3%BCsseldorf-is-a-city-in-germany")
+
+        second_string = "Let Over λ"
+        self.assertEqual(slugify(second_string), "let-over-%CE%BB")
