@@ -1,3 +1,5 @@
-<h1>{{ post.header.title }}</h1>
-<div>{{ post.header.date if post.header.date is not none }}></div>
-<div>{{ post_body }}</div>
+<h1>{{ post.title }}</h1>
+{% if post.date %}
+<span>{{ post.date }}</span>
+{% endif %}
+<div>{{ post.body }}</div>
