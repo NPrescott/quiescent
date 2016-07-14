@@ -1,28 +1,74 @@
 import unittest
+import datetime
 
 from static import StaticGenerator, slugify
 
 
-class FunctionalTests(unittest.TestCase):
+class StaticGeneratorTests(unittest.TestCase):
     config_file = "temp/config.json"
 
     def test_config(self):
         s = StaticGenerator(self.config_file)
-        config = s.read_config_file()
+        config = s.read_config()
         self.assertEqual(config["author"], "Test Author")
 
-    @unittest.expectedFailure
-    def test_render_markdown(self):
+    def test_parse_date_exception(self):
         s = StaticGenerator(self.config_file)
-        md = s.render_md_file("temp/test.md")
-        
-        self.assertEqual(asdf, '\
-<h1>Title line, wow!</h1>\n\
-<p>this is a paragraph</p>\n\
-<ul>\n<li>bullet</li>\n\
-<li>points</li>\n\
-<li>yes</li>\n\
-</ul>\n')
+        with self.assertRaises(TypeError):
+            s.parse_date("2016/01/01")
+
+    def test_parse_date(self):
+        s = StaticGenerator(self.config_file)
+        result = s.parse_date("2016-01-01")
+        self.assertEqual(type(result), datetime.datetime)
+
+    def test_split_post_exception(self):
+        s = StaticGenerator(self.config_file)
+        bad_text = "an improper post body"
+        with self.assertRaises(TypeError):
+            s.split_post(bad_text)
+
+    def test_split_post_length(self):
+        s = StaticGenerator(self.config_file)
+        poorly_formatted_text = "===\n missing a header, post body okay"
+        result = s.split_post(poorly_formatted_text)
+        self.assertEqual(len(result), 2)
+
+    def test_split_post_multiple(self):
+        s = StaticGenerator(self.config_file)
+        extra_header_text = "===\n missing header\n===\nweird text"
+        result = s.split_post(extra_header_text)
+        self.assertEqual(len(result), 2)
+
+    def test_post_parts_header(self):
+        s = StaticGenerator(self.config_file)
+        title_date_string = "title: a title\ndate: 2016-01-01"
+        body_string = "some long\npiece of text\nwould go here"
+        result = s.parse_post_parts(title_date_string, body_string)
+        self.assertTrue('title' in result)
+        self.assertTrue('date' in result)
+
+    def test_post_parts_header_misformatted(self):
+        s = StaticGenerator(self.config_file)
+        title_date_string = "title: a title\n 2016-01-01" # missing 'date:'
+        body_string = "some long\npiece of text\nwould go here"
+        with self.assertRaises(TypeError):
+            s.parse_post_parts(title_date_string, body_string)
+
+    def test_post_parts_header_failure(self):
+        s = StaticGenerator(self.config_file)
+        bad_header_text = "===\n missing header\n===\nweird text"
+        body_string = "some long\npiece of text\nwould go here"
+        with self.assertRaises(TypeError):
+            s.parse_post_parts(bad_header_text, body_string)
+
+    def test_post_parts_header_failure_message(self):
+        s = StaticGenerator(self.config_file)
+        bad_header_text = "title some title\ndate 2016-01-01===\n missing header\n===\nweird text"
+        body_string = "some long\npiece of text\nwould go here"
+        with self.assertRaisesRegex(TypeError, "Improperly formatted header: .*"):
+            s.parse_post_parts(bad_header_text, body_string)
+
 
 class SlugifyTests(unittest.TestCase):
     def test_lowercase(self):

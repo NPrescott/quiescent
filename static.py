@@ -10,35 +10,40 @@ import re
 from mistune import Markdown
 from jinja2 import Environment, PackageLoader
 
-# TODO: some functions/no use of self happening here
+
 class StaticGenerator():
     def __init__(self, config_file="config.json"):
         self.config_file = config_file
-        self.config = self.read_config_file()
+        self.config = self.read_config()
         self._separator = re.compile(r'^===$', re.MULTILINE)
         self.markdown = Markdown()
         self.all_posts = []
 
-    def read_config_file(self):
+    # untested
+    def read_config(self):
         with open(self.config_file) as f:
             config = json.load(f)
         return config
 
+    # TODO: some functions/no use of self happening here
     def read_file(self, filename):
         with open(filename) as f:
             return f.read()
 
+    # TODO: some functions/no use of self happening here
     def write_output_file(self, contents, path):
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, mode='w', encoding='utf8') as outfile:
             outfile.write(contents)
 
+    # untested
     def templatize_post(self, post,
                         template_name='post.html', template_dir='templates'):
         env = Environment(loader=PackageLoader('static', template_dir))
         template = env.get_template(template_name)
         return template.render(post=post)
 
+    # untested
     def collect_posts(self, from_dir):
         for root, _, files in os.walk(from_dir):
             for _file in files:
@@ -60,19 +65,27 @@ class StaticGenerator():
 
     def parse_post_parts(self, header_string, body):
         _post = dict()
-        _header, _post['_body'] = header_string, body
-        kv_string = _header.lower().strip().split('\n')
-        kv_pairs = (pair.split(':', maxsplit=1) for pair in kv_string)
-        _post.update({ key: value.strip() for key, value in kv_pairs })
+        _header_string, _post['_body'] = header_string, body
+        kv_list_pairs = _header_string.lower().strip().split('\n')
+        kv_pairs = (pair.split(':', maxsplit=1) for pair in kv_list_pairs)
+
+        try:
+            header = { key: value.strip() for key, value in kv_pairs }
+        except ValueError as e:
+            raise TypeError("Improperly formatted header: {}".format(kv_list_pairs))
+
+        _post.update(header)
         if 'date' in _post:
             _post['date'] = self.parse_date(_post['date'])
         return _post
 
+    # untested
     def sort_posts_by_date(self, posts):
         """Relies on the `posts` input being a list of dictionaries with a header-date
         field, taken care of by `create_posts`"""
         return sorted(posts, key=lambda post: post['date'], reverse=True)
 
+    # untested
     def create_posts(self):
         posts_dir = self.config['posts_dir']
         output_dir = self.config['output_dir']
