@@ -19,31 +19,17 @@ class StaticGenerator():
         self.markdown = Markdown()
         self.all_posts = []
 
-    # untested
     def read_config(self):
-        with open(self.config_file) as f:
-            config = json.load(f)
-        return config
+        raw_config = read_file(self.config_file)
+        return json.loads(raw_config)
 
-    # TODO: some functions/no use of self happening here
-    def read_file(self, filename):
-        with open(filename) as f:
-            return f.read()
-
-    # TODO: some functions/no use of self happening here
-    def write_output_file(self, contents, path):
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        with open(path, mode='w', encoding='utf8') as outfile:
-            outfile.write(contents)
-
-    # untested
+    # What is a "good" way to test this?
     def templatize_post(self, post,
                         template_name='post.html', template_dir='templates'):
         env = Environment(loader=PackageLoader('static', template_dir))
         template = env.get_template(template_name)
         return template.render(post=post)
 
-    # untested
     def collect_posts(self, from_dir):
         for root, _, files in os.walk(from_dir):
             for _file in files:
@@ -63,26 +49,29 @@ class StaticGenerator():
             raise TypeError("Failed to parse date from: {} - expected {}"
                             .format(date_string, date_format))
 
-    def parse_post_parts(self, header_string, body):
-        _post = dict()
-        _header_string, _post['_body'] = header_string, body
-        kv_list_pairs = _header_string.lower().strip().split('\n')
+    def parse_header(self, header_string):
+        kv_list_pairs = header_string.lower().strip().split('\n')
         kv_pairs = (pair.split(':', maxsplit=1) for pair in kv_list_pairs)
 
         try:
-            header = { key: value.strip() for key, value in kv_pairs }
-        except ValueError as e:
+            return { key: value.strip() for key, value in kv_pairs }
+        except ValueError as err:
             raise TypeError("Improperly formatted header: {}".format(kv_list_pairs))
 
-        _post.update(header)
-        if 'date' in _post:
-            _post['date'] = self.parse_date(_post['date'])
-        return _post
+    def parse_post_parts(self, header_string, body):
+        post = {}
+        post['_body'] = body
+        header = self.parse_header(header_string)
+        post.update(header)
+        if 'date' in post:
+            post['date'] = self.parse_date(post['date'])
+        return post
 
-    # untested
+    # Is this worth testing? Does it need exception handling?
     def sort_posts_by_date(self, posts):
-        """Relies on the `posts` input being a list of dictionaries with a header-date
-        field, taken care of by `create_posts`"""
+        """Relies on the `posts` input being a list of dictionaries with a date field
+
+        """
         return sorted(posts, key=lambda post: post['date'], reverse=True)
 
     # untested
@@ -92,7 +81,7 @@ class StaticGenerator():
 
         for directory, filename in self.collect_posts(posts_dir):
             post_file = os.path.join(directory, filename)
-            raw_text = self.read_file(post_file)
+            raw_text = read_file(post_file)
             header_string, body = self.split_post(raw_text)
             post = self.parse_post_parts(header_string, body)
 
@@ -102,7 +91,7 @@ class StaticGenerator():
             _outfile = re.sub('.md', '.html', filename)
 
             out_path = os.path.join(_outdir, _outfile)
-            self.write_output_file(templated_html, out_path)
+            write_output_file(templated_html, out_path)
 
             if 'date' in post:
                 self.all_posts.append(post)
@@ -120,6 +109,18 @@ class StaticGenerator():
 
     def create_archive(self):
         raise NotImplementedError
+
+
+# Some small utility functions
+#
+def read_file(filename):
+    with open(filename) as f:
+        return f.read()
+
+def write_output_file(contents, path):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, mode='w', encoding='utf8') as outfile:
+        outfile.write(contents)
 
 def slugify(text):
     '''Build hyphenated post slugs from "unsafe" text. RFC3986 requires percent

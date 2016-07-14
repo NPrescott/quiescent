@@ -48,26 +48,25 @@ class StaticGeneratorTests(unittest.TestCase):
         self.assertTrue('title' in result)
         self.assertTrue('date' in result)
 
-    def test_post_parts_header_misformatted(self):
+    def test_post_parts_misformatted(self):
         s = StaticGenerator(self.config_file)
         title_date_string = "title: a title\n 2016-01-01" # missing 'date:'
         body_string = "some long\npiece of text\nwould go here"
         with self.assertRaises(TypeError):
             s.parse_post_parts(title_date_string, body_string)
 
-    def test_post_parts_header_failure(self):
+    def test_parse_header_failure(self):
         s = StaticGenerator(self.config_file)
         bad_header_text = "===\n missing header\n===\nweird text"
-        body_string = "some long\npiece of text\nwould go here"
         with self.assertRaises(TypeError):
-            s.parse_post_parts(bad_header_text, body_string)
+            s.parse_post_parts(bad_header_text)
 
-    def test_post_parts_header_failure_message(self):
+    def test_parse_header_failure_message(self):
         s = StaticGenerator(self.config_file)
         bad_header_text = "title some title\ndate 2016-01-01===\n missing header\n===\nweird text"
         body_string = "some long\npiece of text\nwould go here"
         with self.assertRaisesRegex(TypeError, "Improperly formatted header: .*"):
-            s.parse_post_parts(bad_header_text, body_string)
+            s.parse_header(bad_header_text)
 
 
 class SlugifyTests(unittest.TestCase):
