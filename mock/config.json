@@ -1,5 +1,6 @@
 {
-  "domain": "https://idle.nprescott.com",
+  "author": "Test Author",
+  "domain": "www.example.com",
   "output_dir": "mock/output",
   "posts_dir": "mock/posts",
   "templates_dir": "mock/templates"
