@@ -57,10 +57,8 @@ class StaticGenerator():
             raise TypeError("Improperly formatted header: {}".format(kv_list_pairs))
 
     def parse_post_parts(self, header_string, body):
-        post = {}
+        post = self.parse_header(header_string)
         post['body'] = body
-        header = self.parse_header(header_string)
-        post.update(header)
         if 'date' in post:
             post['date'] = self.parse_date(post['date'])
         return post
@@ -101,13 +99,13 @@ class StaticGenerator():
 
     def write_archive(self):
         if self.all_posts:
-            archive = self.create_archive()
+            archive = self.render_archive()
             archive_path = os.path.join(self.config['output_dir'], 'archive.html')
             write_output_file(archive, archive_path)
         else:
             raise ValueError("StaticGenerator has no posts to create archive")
     
-    def create_archive(self, template_name='archive.html'):
+    def render_archive(self, template_name='archive.html'):
         env = Environment(loader=PackageLoader('static', self.config['templates_dir']))
         template = env.get_template(template_name)
         return template.render(all_posts=self.all_posts)
