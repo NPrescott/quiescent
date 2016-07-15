@@ -1,11 +1,6 @@
-Title: This a Title
-Date: 2016-06-30
+Title: Second Oldest Post
+Date: 2015-06-30
 ===
 
-# Title line, wow!
-===
-this is a paragraph
- - bullet
- - points
- - yes
-===
+# Title Line
+A single paragraph of text.

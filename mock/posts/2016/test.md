@@ -1,11 +1,6 @@
-Title: This a Title
-Date: 2016-06-30
+Title: Most Recent Post
+Date: 2016-06-01
 ===
 
-# Title line, wow!
-===
-this is a paragraph
- - bullet
- - points
- - yes
-===
+# Newest Post
+Words words words. Lots of words.

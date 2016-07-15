@@ -1,6 +1,7 @@
-Title: This a Title
+Title: Magic Main Page
+altname: index.html
 ===
 
-- pretend this is a post
-- pretend this is also a post
-- this is an old post
+ - [Most Recent Post](2016/most-recent-post.html)
+ - [Second Oldest Post](2015/second-oldest-post.html)
+ - [Oldest Post](2015/oldest-post.html)

@@ -49,10 +49,10 @@ class StaticGenerator():
                             .format(date_string, self.config['date_format']))
 
     def parse_header(self, header_string):
-        kv_list_pairs = header_string.lower().strip().split('\n')
+        kv_list_pairs = header_string.strip().split('\n')
         kv_pairs = (pair.split(':', maxsplit=1) for pair in kv_list_pairs)
         try:
-            return { key: value.strip() for key, value in kv_pairs }
+            return { key.lower(): value.strip() for key, value in kv_pairs }
         except ValueError as err:
             raise TypeError("Improperly formatted header: {}".format(kv_list_pairs))
 
@@ -81,7 +81,7 @@ class StaticGenerator():
             post = self.parse_post_parts(header_string, body)
             post['body'] = self.markdown(post['body'])
             templated_html = self.templatize_post(post)
-            _outdir = re.sub(posts_dir, output_dir, directory)
+            relative_dir = re.sub(posts_dir, '', directory, count=1)
 
             # in case I want to directly specify the generated URI/filename (as
             # in the case of an index) without having to title it "index"
@@ -90,13 +90,27 @@ class StaticGenerator():
             else:
                 _filename = '{}.html'.format(slugify(post['title']))                
 
-            post['path'] = os.path.join(_outdir, _filename)
-            write_output_file(templated_html, post['path'])
+            post['path'] = os.path.join(relative_dir, _filename)
+            full_path = os.path.join(output_dir, relative_dir, _filename)
+            write_output_file(templated_html, full_path)
 
             if 'date' in post:
                 self.all_posts.append(post)
 
         self.all_posts = self.sort_posts_by_date(self.all_posts)
+
+    def write_archive(self):
+        if self.all_posts:
+            archive = self.create_archive()
+            archive_path = os.path.join(self.config['output_dir'], 'archive.html')
+            write_output_file(archive, archive_path)
+        else:
+            raise ValueError("StaticGenerator has no posts to create archive")
+    
+    def create_archive(self, template_name='archive.html'):
+        env = Environment(loader=PackageLoader('static', self.config['templates_dir']))
+        template = env.get_template(template_name)
+        return template.render(all_posts=self.all_posts)
 
     # TODO: this isn't really written yet. This is more like a sketch. Atom
     # feed requires more information. How are IDs going to be handled?
@@ -105,10 +119,6 @@ class StaticGenerator():
         template = env.get_template('atom_feed.template')
         recent_posts = self.all_posts[:post_limit]
         return template.render(recent_posts=recent_posts, config=self.config)
-
-    def create_archive(self):
-        raise NotImplementedError
-
 
 # small utility functions
 def read_file(filename):
