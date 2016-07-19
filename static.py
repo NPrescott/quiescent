@@ -2,6 +2,7 @@
 
 from datetime import datetime as dt
 import urllib
+import shutil
 import json
 import sys
 import os
@@ -33,6 +34,24 @@ class StaticGenerator():
             for _file in files:
                 if _file.endswith('.md'):
                     yield (root, _file)
+
+    def find_media_dir_paths(self, dirname):
+        for root, directories, files in os.walk(dirname):
+            for directory in directories:
+                if directory == self.config['media_dir']:
+                    yield os.path.join(root, directory)
+
+    def copy_media(self):
+        input_dir = self.config['posts_dir']
+        out_dir = self.config['output_dir']
+        media_dirs = self.find_media_dir_paths(input_dir)
+        for each_dir in media_dirs:
+            relative_dest_dir = re.sub(input_dir, '', each_dir, count=1)
+            out_path = os.path.join(out_dir, relative_dest_dir)
+            os.makedirs(out_path, exist_ok=True)
+            for filename in os.listdir(each_dir):
+                shutil.copy(os.path.join(each_dir, filename), out_path)
+            
 
     def split_post(self, content):
         _split_contents = self._separator.split(content, maxsplit=1)
@@ -156,3 +175,4 @@ def slugify(text):
 if __name__ == '__main__':
     s = StaticGenerator()
     s.create_posts()
+    s.copy_media()
