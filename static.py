@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 from datetime import datetime as dt
+import argparse
 import urllib
 import shutil
 import json
@@ -9,7 +10,7 @@ import os
 import re
 
 from mistune import Markdown
-from jinja2 import Environment, PackageLoader
+from jinja2 import Environment, FileSystemLoader
 
 
 class StaticGenerator():
@@ -25,7 +26,7 @@ class StaticGenerator():
         return json.loads(raw_config)
 
     def templatize_post(self, post_obj, template_name='post.html'):
-        env = Environment(loader=PackageLoader('static', self.config['templates_dir']))
+        env = Environment(loader=FileSystemLoader(self.config['templates_dir']))
         template = env.get_template(template_name)
         return template.render(post=post_obj)
 
@@ -51,7 +52,6 @@ class StaticGenerator():
             os.makedirs(out_path, exist_ok=True)
             for filename in os.listdir(each_dir):
                 shutil.copy(os.path.join(each_dir, filename), out_path)
-            
 
     def split_post(self, content):
         _split_contents = self._separator.split(content, maxsplit=1)
@@ -125,17 +125,27 @@ class StaticGenerator():
             raise ValueError("StaticGenerator has no posts to create archive")
     
     def render_archive(self, template_name='archive.html'):
-        env = Environment(loader=PackageLoader('static', self.config['templates_dir']))
+        env = Environment(loader=FileSystemLoader(self.config['templates_dir']))
         template = env.get_template(template_name)
         return template.render(all_posts=self.all_posts)
 
-    # TODO: this isn't really written yet. This is more like a sketch. Atom
-    # feed requires more information. How are IDs going to be handled?
-    def create_feed(self, post_limit=10):
-        env = Environment(loader=PackageLoader('static', 'templates'))
+    # TODO: This is more like a sketch that incidentally works. The atom feed
+    # template is really hacky
+    #
+    # - datetime/timezones only work after appending a stray 'Z'
+    # - ID building, won't work for otherwise supported "altnames" in posts
+    # - relatively linked content (images in <year>/static/) don't work
+    def render_feed(self, post_limit=10):
+        env = Environment(loader=FileSystemLoader(self.config['templates_dir']))
+        env.filters["slugify"] = slugify
         template = env.get_template('atom_feed.template')
         recent_posts = self.all_posts[:post_limit]
         return template.render(recent_posts=recent_posts, config=self.config)
+
+    def write_feed(self):
+        feed = self.render_feed()
+        output_path = os.path.join(self.config['output_dir'], 'feed.xml')
+        write_output_file(feed, output_path)
 
 # small utility functions
 def read_file(filename):
@@ -173,6 +183,11 @@ def slugify(text):
     return output_string
 
 if __name__ == '__main__':
-    s = StaticGenerator()
+    parser = argparse.ArgumentParser(description='Generate a collection of static HTML pages')
+    parser.add_argument('-c', '--config', default='config.json')
+    args = parser.parse_args()
+    s = StaticGenerator(config_file=args.config)
     s.create_posts()
+    s.write_archive()
+    s.write_feed()
     s.copy_media()

@@ -1,5 +1,7 @@
 {
-  "domain": "https://idle.nprescott.com",
+  "domain": "",
+  "name": "",
+  "author": "",
   "output_dir": "mock/output/",
   "posts_dir": "mock/posts/",
   "media_dir": "static",
