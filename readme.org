@@ -1,62 +1,35 @@
 * A static site generator that doesn't suck
   /where "doesn't suck" means tailored to my exact needs/
 
-*** Things it should do
-   - plaintext
-   - hierarchical URL structure (to match the existing)
+** Things It Should Do or Does Already
+   - [X] plaintext
+   - [X] hierarchical URL structure (to match the existing)
      - e.g. (~/2016/post-title~)
    - RSS/Atom feed generation
+     - not 100% yet
 
-*** Things I don't care about
-   - a local webserver
-   - multiple input formats
-   - comments
-   - cross-post-to-twitter
-   - tags
-
-*** possible interface
-   #+BEGIN_EXAMPLE 
-   $ static gen
-   ... compile plaintext to HTML
-   ... fit HTML to templates
-   ... write HTML to output directory
-   ... generate ATOM/RSS feed and write to output directory
-   ... (nice to have) generate an index/archive/sitemap
-   #+END_EXAMPLE
-
-**** nice to have
-   #+BEGIN_EXAMPLE 
-   $ static new
-   ... title? > A New Post
-   ... generate file in correct directory (based on year)
-   ...    created: 2016/a-new-post.md
-   ... apply appropriate metadata to post (Title, Date)
-   ...    Title: A New Post
-   ...    Date:  2016-06-29
-   #+END_EXAMPLE
-
-   #+BEGIN_EXAMPLE 
-   $ static config
-   ... blog name? > _____
-   ... blog URL?  > _____
-   ... author?    > _____
-   #+END_EXAMPLE
+** Possible Future Improvements
+  - generate an index/main page
+  - caching, to prevent regenerating files and needlessly shuffling around
+    bulky post objects.
+    - Maybe a plaintext file of "previously seen" posts?
+      - "Clearing the cache" could be just deleting that file
+  - installer / add-able to path in some fashion beyond invoking the script
+    from within a virtualenv
    
-And that's basically it! I trust myself to verify and ~rsync~ the output as
-needed and can fiddle with things like caching, forcing re-builds later.
-
-*** Probable Technology Choices
+** Technology
   - [[http://jinja.pocoo.org/][Jinja2]] for templating
     - including ATOM/RSS
-      - I'd rather limit external libraries/technology and simply validate the
-        generated feed than introduce more surface area to the project
-        - [[https://tools.ietf.org/html/rfc4287][ATOM RFC]]
-        - [[http://alexanderle.com/blog/2012/create-an-rss-feed-from-scratch.html][example]]
-        - [[https://gist.github.com/billygoat/5429355][example]]
-        - [[https://github.com/hypothesis/h/blob/master/h/templates/atom.xml.jinja2][example]]
   - [[https://github.com/lepture/mistune][Mistune for markdown parsing]]
   - Python 3
     - 2 is dead, let it go.
 
+** Things I don't care about
+  - a local webserver
+  - multiple input formats
+  - comments
+  - cross-post-to-twitter
+  - tags
 
-* *THIS IS NOT A BIG DEAL*
+** License
+   GPLv3, see COPYING for more information
