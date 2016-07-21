@@ -2,8 +2,8 @@
   "domain": "",
   "name": "",
   "author": "",
-  "output_dir": "mock/output/",
-  "posts_dir": "mock/posts/",
+  "output_dir": "example/output/",
+  "posts_dir": "example/posts/",
   "media_dir": "static",
   "templates_dir": "templates/",
   "date_format": "%Y-%m-%d"

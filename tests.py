@@ -5,7 +5,7 @@ from static import StaticGenerator, slugify
 
 
 class StaticGeneratorTests(unittest.TestCase):
-    config_file = "mock/config.json"
+    config_file = "example/config.json"
     s = StaticGenerator(config_file)
     config = s.read_config()
 
