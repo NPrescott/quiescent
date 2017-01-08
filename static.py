@@ -34,16 +34,42 @@ class StaticGenerator():
         self.config = self.read_config()
         self._separator = re.compile(r'^===$', re.MULTILINE)
         self.markdown = Markdown()
-        self.all_posts = []
+        self._env = Environment(
+            loader=FileSystemLoader(self.config['templates_dir'])
+        )
+        self._post_template = self._env.get_template('post.html')
+        self.all_posts = self.load_rendered(self.config['prerender_file'])
+
+    def dump_rendered(self, json_file):
+        _posts = [{ 'filename': post['filename'],
+                    'title': post['title'],
+                    'date': post['date'].strftime(self.config['date_format']),
+                    'path': post['path']}
+                  for post in self.all_posts]
+        with open(json_file, 'w') as f:
+            json.dump(_posts, f)
+
+    def load_rendered(self, json_file):
+        try:
+            cache = json.loads(read_file(json_file))
+            for entry in cache:
+                entry['date'] = dt.strptime(entry['date'],
+                                            self.config['date_format'])
+            return cache
+
+        except (FileNotFoundError, json.decoder.JSONDecodeError) as e:
+            return []
+
+    def is_prerendered(self, filename):
+        return any(filename in dictionary.values()
+                   for dictionary in self.all_posts)
 
     def read_config(self):
         raw_config = read_file(self.config_file)
         return json.loads(raw_config)
 
-    def templatize_post(self, post_obj, template_name='post.html'):
-        env = Environment(loader=FileSystemLoader(self.config['templates_dir']))
-        template = env.get_template(template_name)
-        return template.render(post=post_obj)
+    def templatize_post(self, post_obj):
+        return self._post_template.render(post=post_obj)
 
     def collect_posts(self, from_dir):
         for root, _, files in os.walk(from_dir):
@@ -76,6 +102,9 @@ class StaticGenerator():
         return _split_contents
 
     def parse_date(self, date_string):
+        """
+        returns: datetime
+        """
         try:
             return dt.strptime(date_string, self.config['date_format'])
         except ValueError as err:
@@ -88,7 +117,8 @@ class StaticGenerator():
         try:
             return { key.lower(): value.strip() for key, value in kv_pairs }
         except ValueError as err:
-            raise TypeError("Improperly formatted header: {}".format(kv_list_pairs))
+            raise TypeError(
+                "Improperly formatted header: {}".format(kv_list_pairs))
 
     def parse_post_parts(self, header_string, body):
         post = self.parse_header(header_string)
@@ -98,7 +128,9 @@ class StaticGenerator():
         return post
 
     def sort_posts_by_date(self, posts):
-        """Relies on the posts input being a list of dictionaries with a date field"""
+        """
+        Relies on the posts input being a list of dictionaries with a date field
+        """
         return sorted(posts, key=lambda post: post['date'], reverse=True)
 
     # TODO: needs tests
@@ -107,29 +139,35 @@ class StaticGenerator():
         output_dir = self.config['output_dir']
 
         for directory, filename in self.collect_posts(posts_dir):
-            post_file = os.path.join(directory, filename)
-            raw_text = read_file(post_file)
-            header_string, body = self.split_post(raw_text)
-            post = self.parse_post_parts(header_string, body)
-            post['body'] = self.markdown(post['body'])
-            templated_html = self.templatize_post(post)
-            relative_dir = re.sub(posts_dir, '', directory, count=1)
+            if not self.is_prerendered(filename):
+                post_file = os.path.join(directory, filename)
+                raw_text = read_file(post_file)
+                header_string, body = self.split_post(raw_text)
+                post = self.parse_post_parts(header_string, body)
+                post['body'] = self.markdown(post['body'])
+                templated_html = self.templatize_post(post)
+                relative_dir = re.sub(posts_dir, '', directory, count=1)
 
-            # in case I want to directly specify the generated URI/filename (as
-            # in the case of an index) without having to title it "index"
-            if 'altname' in post:
-                _filename = post['altname']
-            else:
-                _filename = '{}.html'.format(slugify(post['title']))                
+                # in case I want to directly specify the generated URI/filename
+                # (as in the case of an index) without having to title it
+                # "index"
+                if 'altname' in post:
+                    _filename = post['altname']
+                else:
+                    _filename = '{}.html'.format(slugify(post['title']))
 
-            post['path'] = os.path.join(relative_dir, _filename)
-            full_path = os.path.join(output_dir, relative_dir, _filename)
-            write_output_file(templated_html, full_path)
+                post['path'] = os.path.join(relative_dir, _filename)
+                full_path = os.path.join(output_dir, relative_dir, _filename)
+                write_output_file(templated_html, full_path)
 
-            if 'date' in post:
-                self.all_posts.append(post)
+                if 'date' in post:
+                    self.all_posts.append({ 'filename': filename,
+                                            'title': post['title'],
+                                            'date': post['date'],
+                                            'path': post['path'] })
 
         self.all_posts = self.sort_posts_by_date(self.all_posts)
+        self.dump_rendered(self.config['prerender_file'])
 
     def write_archive(self):
         if self.all_posts:
@@ -138,7 +176,7 @@ class StaticGenerator():
             write_output_file(archive, archive_path)
         else:
             raise ValueError("StaticGenerator has no posts to create archive")
-    
+
     def render_archive(self, template_name='archive.html'):
         env = Environment(loader=FileSystemLoader(self.config['templates_dir']))
         template = env.get_template(template_name)
@@ -198,7 +236,9 @@ def slugify(text):
     return output_string
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Generate a collection of static HTML pages')
+    parser = argparse.ArgumentParser(
+        description='Generate a collection of static HTML pages'
+    )
     parser.add_argument('-c', '--config', default='config.json')
     args = parser.parse_args()
     s = StaticGenerator(config_file=args.config)
