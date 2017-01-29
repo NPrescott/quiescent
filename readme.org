@@ -1,4 +1,4 @@
-* Simplified static site generating
+* Simplified static site generation
   I sometimes write about improvements or changes to /Static/:
     - [[https://idle.nprescott.com/2016/profiling-python.html][Profiling Python]]
     - [[https://idle.nprescott.com/2017/optimizing-static-site-generation.html][Optimizing Static Site Generation]]
