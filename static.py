@@ -29,8 +29,9 @@ from jinja2 import Environment, FileSystemLoader
 
 
 class StaticGenerator():
-    def __init__(self, config_file="config.json"):
+    def __init__(self, config_file="config.json", save=False):
         self.config_file = config_file
+        self.save = save
         self.config = self.read_config()
         self._separator = re.compile(r'^===$', re.MULTILINE)
         self.markdown = Markdown()
@@ -51,11 +52,11 @@ class StaticGenerator():
 
     def load_rendered(self, json_file):
         try:
-            cache = json.loads(read_file(json_file))
-            for entry in cache:
+            save_file = json.loads(read_file(json_file))
+            for entry in save_file:
                 entry['date'] = dt.strptime(entry['date'],
                                             self.config['date_format'])
-            return cache
+            return save_file
 
         except (FileNotFoundError, json.decoder.JSONDecodeError) as e:
             return []
@@ -167,7 +168,9 @@ class StaticGenerator():
                                             'path': post['path'] })
 
         self.all_posts = self.sort_posts_by_date(self.all_posts)
-        self.dump_rendered(self.config['prerender_file'])
+
+        if self.save:
+            self.dump_rendered(self.config['prerender_file'])
 
     def write_archive(self):
         if self.all_posts:
@@ -240,8 +243,11 @@ if __name__ == '__main__':
         description='Generate a collection of static HTML pages'
     )
     parser.add_argument('-c', '--config', default='config.json')
+    parser.add_argument('--save', dest='save', action='store_true')
+
     args = parser.parse_args()
-    s = StaticGenerator(config_file=args.config)
+    s = StaticGenerator(config_file=args.config, save=args.save)
+
     s.create_posts()
     s.write_archive()
     s.write_feed()
