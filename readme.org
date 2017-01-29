@@ -1,28 +1,25 @@
-* A static site generator that doesn't suck
-  /where "doesn't suck" means tailored to my exact needs/
+* Simplified static site generating
+  I sometimes write about improvements or changes to /Static/:
+    - [[https://idle.nprescott.com/2016/profiling-python.html][Profiling Python]]
+    - [[https://idle.nprescott.com/2017/optimizing-static-site-generation.html][Optimizing Static Site Generation]]
 
 ** Things It Should Do or Does Already
    - [X] plaintext
-   - [X] hierarchical URL structure (to match the existing)
-     - e.g. (~/2016/post-title~)
-   - RSS/Atom feed generation
+   - [X] hierarchical directory/URL structure
+     - e.g. (~<root URL>/2016/post-title.html~)
+   - [ ] RSS/Atom feed generation
      - not 100% yet
 
 ** Possible Future Improvements
-  - generate an index/main page
-  - caching, to prevent regenerating files and needlessly shuffling around
-    bulky post objects.
-    - Maybe a plaintext file of "previously seen" posts?
-      - "Clearing the cache" could be just deleting that file
+  - auto-generate an index/main page
   - installer / add-able to path in some fashion beyond invoking the script
     from within a virtualenv
+    - could be a simple as a real ~setup.py~ file
    
 ** Technology
   - [[http://jinja.pocoo.org/][Jinja2]] for templating
-    - including ATOM/RSS
   - [[https://github.com/lepture/mistune][Mistune for markdown parsing]]
   - Python 3
-    - 2 is dead, let it go.
 
 ** Things I don't care about
   - a local webserver
