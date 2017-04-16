@@ -9,7 +9,7 @@
      - e.g. (~<root URL>/2016/post-title.html~)
    - [X] RSS/Atom feed generation
      - 80% there, known issue of relative links in Atom feed (they're broken)
-       - partial fixes include specifying a `<base href="...">` in a template
+       - partial fixes include specifying a ~<base href="...">~ in a template
          or adding more explicity addressing to relative paths
 
 ** Possible Future Improvements
