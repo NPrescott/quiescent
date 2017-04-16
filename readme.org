@@ -7,14 +7,16 @@
    - [X] plaintext
    - [X] hierarchical directory/URL structure
      - e.g. (~<root URL>/2016/post-title.html~)
-   - [ ] RSS/Atom feed generation
-     - not 100% yet
+   - [X] RSS/Atom feed generation
+     - 80% there, known issue of relative links in Atom feed (they're broken)
+       - partial fixes include specifying a `<base href="...">` in a template
+         or adding more explicity addressing to relative paths
 
 ** Possible Future Improvements
   - auto-generate an index/main page
   - installer / add-able to path in some fashion beyond invoking the script
     from within a virtualenv
-    - could be a simple as a real ~setup.py~ file
+    - could be as simple as a real ~setup.py~ file
    
 ** Technology
   - [[http://jinja.pocoo.org/][Jinja2]] for templating
