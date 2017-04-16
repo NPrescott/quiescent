@@ -17,6 +17,7 @@ import unittest
 import datetime
 
 from static import StaticGenerator, slugify
+from feed import feed, feed_entry
 
 
 class StaticGeneratorTests(unittest.TestCase):

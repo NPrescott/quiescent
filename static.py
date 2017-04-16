@@ -1,21 +1,21 @@
 #!/usr/bin/env python3
 
-# Copyright 2016 Nolan Prescott
+# Copyright 2017 Nolan Prescott
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
-
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-
+#
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from datetime import datetime as dt
+from datetime import datetime, timezone
 import argparse
 import urllib
 import shutil
@@ -26,6 +26,8 @@ import re
 
 from mistune import Markdown
 from jinja2 import Environment, FileSystemLoader
+
+from feed import feed, render_feed
 
 
 class StaticGenerator():
@@ -43,20 +45,23 @@ class StaticGenerator():
 
     def dump_rendered(self, json_file):
         _posts = [{ 'filename': post['filename'],
-                    'title': post['title'],
-                    'date': post['date'].strftime(self.config['date_format']),
-                    'path': post['path']}
+                    'title':    post['title'],
+                    'date':     post['date'].strftime(self.config['date_format']),
+                    'path':     post['path'],
+                    'body':     post['body']}
                   for post in self.all_posts]
         with open(json_file, 'w') as f:
             json.dump(_posts, f)
 
     def load_rendered(self, json_file):
         try:
-            save_file = json.loads(read_file(json_file))
-            for entry in save_file:
-                entry['date'] = dt.strptime(entry['date'],
-                                            self.config['date_format'])
-            return save_file
+            with open(json_file) as f:
+                save_file = json.load(f)
+                for entry in save_file:
+                    _date = datetime.strptime(entry['date'],
+                                              self.config['date_format'])
+                    entry['date'] = _date.replace(tzinfo=timezone.utc)
+                return save_file
 
         except (FileNotFoundError, json.decoder.JSONDecodeError) as e:
             return []
@@ -66,7 +71,7 @@ class StaticGenerator():
                    for dictionary in self.all_posts)
 
     def read_config(self):
-        raw_config = read_file(self.config_file)
+        raw_config = to_string(self.config_file)
         return json.loads(raw_config)
 
     def templatize_post(self, post_obj):
@@ -104,10 +109,11 @@ class StaticGenerator():
 
     def parse_date(self, date_string):
         """
-        returns: datetime
+        returns: datetime with timezone in UTC
         """
         try:
-            return dt.strptime(date_string, self.config['date_format'])
+            _date = datetime.strptime(date_string, self.config['date_format'])
+            return _date.replace(tzinfo=timezone.utc)
         except ValueError as err:
             raise TypeError("Failed to parse date from: {} - expected {}"
                             .format(date_string, self.config['date_format']))
@@ -118,8 +124,8 @@ class StaticGenerator():
         try:
             return { key.lower(): value.strip() for key, value in kv_pairs }
         except ValueError as err:
-            raise TypeError(
-                "Improperly formatted header: {}".format(kv_list_pairs))
+            raise TypeError("Improperly formatted header: {}"
+                            .format(kv_list_pairs))
 
     def parse_post_parts(self, header_string, body):
         post = self.parse_header(header_string)
@@ -142,7 +148,7 @@ class StaticGenerator():
         for directory, filename in self.collect_posts(posts_dir):
             if not self.is_prerendered(filename):
                 post_file = os.path.join(directory, filename)
-                raw_text = read_file(post_file)
+                raw_text = to_string(post_file)
                 header_string, body = self.split_post(raw_text)
                 post = self.parse_post_parts(header_string, body)
                 post['body'] = self.markdown(post['body'])
@@ -159,13 +165,14 @@ class StaticGenerator():
 
                 post['path'] = os.path.join(relative_dir, _filename)
                 full_path = os.path.join(output_dir, relative_dir, _filename)
-                write_output_file(templated_html, full_path)
+                write_to_file(templated_html, full_path)
 
                 if 'date' in post:
-                    self.all_posts.append({ 'filename': filename,
-                                            'title': post['title'],
-                                            'date': post['date'],
-                                            'path': post['path'] })
+                    self.all_posts.append({'filename': filename,
+                                           'title':    post['title'],
+                                           'date':     post['date'],
+                                           'path':     post['path'],
+                                           'body':     post['body']})
 
         self.all_posts = self.sort_posts_by_date(self.all_posts)
 
@@ -176,7 +183,7 @@ class StaticGenerator():
         if self.all_posts:
             archive = self.render_archive()
             archive_path = os.path.join(self.config['output_dir'], 'archive.html')
-            write_output_file(archive, archive_path)
+            write_to_file(archive, archive_path)
         else:
             raise ValueError("StaticGenerator has no posts to create archive")
 
@@ -185,30 +192,24 @@ class StaticGenerator():
         template = env.get_template(template_name)
         return template.render(all_posts=self.all_posts)
 
-    # TODO: This is more like a sketch that incidentally works. The atom feed
-    # template is really hacky
-    #
-    # - datetime/timezones only work after appending a stray 'Z'
-    # - ID building, won't work for otherwise supported "altnames" in posts
-    # - relatively linked content (images in <year>/static/) don't work
-    def render_feed(self, post_limit=10):
-        env = Environment(loader=FileSystemLoader(self.config['templates_dir']))
-        env.filters["slugify"] = slugify
-        template = env.get_template('atom_feed.template')
+    # relatively linked content (images in <year>/static/) don't work
+    def _feed_string(self, post_limit=10):
         recent_posts = self.all_posts[:post_limit]
-        return template.render(recent_posts=recent_posts, config=self.config)
+        return render_feed(feed(recent_posts, **self.config))
 
     def write_feed(self):
-        feed = self.render_feed()
-        output_path = os.path.join(self.config['output_dir'], 'feed.xml')
-        write_output_file(feed, output_path)
+        # feed is utf-8 bytes
+        feed = self._feed_string()
+        output_path = os.path.join(self.config['output_dir'], 'feed.atom')
+        with open(output_path, 'wb') as f:
+            f.write(feed)
 
 # small utility functions
-def read_file(filename):
+def to_string(filename):
     with open(filename) as f:
         return f.read()
 
-def write_output_file(contents, path):
+def write_to_file(contents, path):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, mode='w', encoding='utf8') as outfile:
         outfile.write(contents)
