@@ -21,14 +21,8 @@ Atom because it seemed simpler, but I haven't read either spec entirely[0]. I'm
 finally dropping all attempts at string-templating because, well, string
 templates and XML :(
 
-First pass here does the simplest (stupidest?) thing and is relatively
-feature-less.
+First pass here does the simplest thing and is relatively feature-less.
   - update times are reported in UTC with no offset
-  - relative URLs are broken
-    - "fixable" with a `<base href='...'>` in the root template, but that makes
-      local development hard
-    - "fixable" with more relativity to the URLs
-      (e.g. `../2017/static/image.png`) but that is a little annoying
 
 TODO:
   - write some tests against this. `feed` is stateful by default, which sucks

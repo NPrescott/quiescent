@@ -32,16 +32,15 @@ from feed import feed, render_feed
 
 class StaticGenerator():
     def __init__(self, config_file="config.json", save=False):
-        self.config_file = config_file
         self.save = save
-        self.config = self.read_config()
+        self.config = self.read_config(config_file)
         self._separator = re.compile(r'^===$', re.MULTILINE)
         self.markdown = Markdown()
         self._env = Environment(
             loader=FileSystemLoader(self.config['templates_dir'])
         )
         self._post_template = self._env.get_template('post.html')
-        self.all_posts = self.load_rendered(self.config['prerender_file'])
+        self.all_posts = self.load_rendered(self.config['prerender_file']) if self.save else []
 
     def dump_rendered(self, json_file):
         _posts = [{ 'filename': post['filename'],
@@ -70,14 +69,16 @@ class StaticGenerator():
         return any(filename in dictionary.values()
                    for dictionary in self.all_posts)
 
-    def read_config(self):
-        raw_config = to_string(self.config_file)
+    @staticmethod
+    def read_config(config_file):
+        raw_config = to_string(config_file)
         return json.loads(raw_config)
 
     def templatize_post(self, post_obj):
         return self._post_template.render(post=post_obj)
 
-    def collect_posts(self, from_dir):
+    @staticmethod
+    def collect_posts(from_dir):
         for root, _, files in os.walk(from_dir):
             for _file in files:
                 if _file.endswith('.md'):
@@ -140,33 +141,33 @@ class StaticGenerator():
         """
         return sorted(posts, key=lambda post: post['date'], reverse=True)
 
+    def create_post(self, directory, filename):
+        post_file = os.path.join(directory, filename)
+        raw_text = to_string(post_file)
+        header_string, body = self.split_post(raw_text)
+        post = self.parse_post_parts(header_string, body)
+        post['body'] = self.markdown(post['body'])
+        templated_html = self.templatize_post(post)
+        relative_dir = re.sub(self.config['posts_dir'], '', directory, count=1)
+
+        # in case I want to directly specify the generated URI/filename
+        # (as in the case of an index) without having to title it
+        # "index"
+        if 'altname' in post:
+            _filename = post['altname']
+        else:
+            _filename = '{}.html'.format(slugify(post['title']))
+
+        post['path'] = os.path.join(relative_dir, _filename)
+        full_path = os.path.join(self.config['output_dir'], relative_dir, _filename)
+        write_to_file(templated_html, full_path)
+        return post
+
     # TODO: needs tests
     def create_posts(self):
-        posts_dir = self.config['posts_dir']
-        output_dir = self.config['output_dir']
-
-        for directory, filename in self.collect_posts(posts_dir):
+        for directory, filename in self.collect_posts(self.config['posts_dir']):
             if not self.is_prerendered(filename):
-                post_file = os.path.join(directory, filename)
-                raw_text = to_string(post_file)
-                header_string, body = self.split_post(raw_text)
-                post = self.parse_post_parts(header_string, body)
-                post['body'] = self.markdown(post['body'])
-                templated_html = self.templatize_post(post)
-                relative_dir = re.sub(posts_dir, '', directory, count=1)
-
-                # in case I want to directly specify the generated URI/filename
-                # (as in the case of an index) without having to title it
-                # "index"
-                if 'altname' in post:
-                    _filename = post['altname']
-                else:
-                    _filename = '{}.html'.format(slugify(post['title']))
-
-                post['path'] = os.path.join(relative_dir, _filename)
-                full_path = os.path.join(output_dir, relative_dir, _filename)
-                write_to_file(templated_html, full_path)
-
+                post = self.create_post(directory, filename)
                 if 'date' in post:
                     self.all_posts.append({'filename': filename,
                                            'title':    post['title'],
@@ -192,7 +193,6 @@ class StaticGenerator():
         template = env.get_template(template_name)
         return template.render(all_posts=self.all_posts)
 
-    # relatively linked content (images in <year>/static/) don't work
     def _feed_string(self, post_limit=10):
         recent_posts = self.all_posts[:post_limit]
         return render_feed(feed(recent_posts, **self.config))
@@ -200,18 +200,19 @@ class StaticGenerator():
     def write_feed(self):
         # feed is utf-8 bytes
         feed = self._feed_string()
-        output_path = os.path.join(self.config['output_dir'], 'feed.atom')
+        output_path = os.path.join(self.config['output_dir'],
+                                   self.config['feed_link'])
         with open(output_path, 'wb') as f:
             f.write(feed)
 
 # small utility functions
 def to_string(filename):
-    with open(filename) as f:
+    with open(filename, encoding='utf-8') as f:
         return f.read()
 
 def write_to_file(contents, path):
     os.makedirs(os.path.dirname(path), exist_ok=True)
-    with open(path, mode='w', encoding='utf8') as outfile:
+    with open(path, mode='w', encoding='utf-8') as outfile:
         outfile.write(contents)
 
 def slugify(text):

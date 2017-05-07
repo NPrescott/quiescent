@@ -23,10 +23,9 @@ from feed import feed, feed_entry
 class StaticGeneratorTests(unittest.TestCase):
     config_file = "example/config.json"
     s = StaticGenerator(config_file)
-    config = s.read_config()
 
     def test_config(self):
-        config = self.s.read_config()
+        config = self.s.read_config(self.config_file)
         self.assertEqual(config["author"], "Test Author")
 
     def test_parse_date_exception(self):
@@ -119,3 +118,7 @@ class SlugifyTests(unittest.TestCase):
 
         second_string = "Let Over λ"
         self.assertEqual(slugify(second_string), "let-over-%CE%BB")
+
+class FeedTests(unittest.TestCase):
+    def test_nothing(self):
+        print("THERE ARE NO TESTS OF THE ATOM FEED!")
