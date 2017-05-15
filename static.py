@@ -16,6 +16,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from datetime import datetime, timezone
+from collections import defaultdict
 import argparse
 import urllib
 import shutil
@@ -28,7 +29,7 @@ from mistune import Markdown
 from jinja2 import Environment, FileSystemLoader
 
 from feed import feed, render_feed
-
+from search import interesting_words
 
 class StaticGenerator():
     def __init__(self, config_file="config.json", save=False):
@@ -41,6 +42,9 @@ class StaticGenerator():
         )
         self._post_template = self._env.get_template('post.html')
         self.all_posts = self.load_rendered(self.config['prerender_file']) if self.save else []
+        self.lookup_table = dict()
+        self.all_search_terms = defaultdict(list)
+        self.incr = 0
 
     def dump_rendered(self, json_file):
         _posts = [{ 'filename': post['filename'],
@@ -80,9 +84,9 @@ class StaticGenerator():
     @staticmethod
     def collect_posts(from_dir):
         for root, _, files in os.walk(from_dir):
-            for _file in files:
-                if _file.endswith('.md'):
-                    yield (root, _file)
+            for filename in files:
+                if filename.endswith('.md'):
+                    yield (root, filename)
 
     def find_media_dir_paths(self, dirname):
         for root, directories, files in os.walk(dirname):
@@ -141,11 +145,16 @@ class StaticGenerator():
         """
         return sorted(posts, key=lambda post: post['date'], reverse=True)
 
-    def create_post(self, directory, filename):
+    def create_post(self, dir_file_tuple):
+        directory, filename = dir_file_tuple
         post_file = os.path.join(directory, filename)
         raw_text = to_string(post_file)
         header_string, body = self.split_post(raw_text)
         post = self.parse_post_parts(header_string, body)
+
+        # build search terms
+        post['search_terms'] = interesting_words(raw_text)
+
         post['body'] = self.markdown(post['body'])
         templated_html = self.templatize_post(post)
         relative_dir = re.sub(self.config['posts_dir'], '', directory, count=1)
@@ -158,27 +167,48 @@ class StaticGenerator():
         else:
             _filename = '{}.html'.format(slugify(post['title']))
 
+        post['filename'] = filename
         post['path'] = os.path.join(relative_dir, _filename)
+
+        # FIXME: build search term look-up, probably not cache-safe.
+        # FIXME: Incrementer is dumb but eliminates 80% of the lookup
+        #        table-space
+        self.lookup_table[self.incr] = post['path']
+        for word in post['search_terms']:
+            self.all_search_terms[word].append(self.incr)
+        self.incr += 1
+
         full_path = os.path.join(self.config['output_dir'], relative_dir, _filename)
         write_to_file(templated_html, full_path)
         return post
 
     # TODO: needs tests
     def create_posts(self):
-        for directory, filename in self.collect_posts(self.config['posts_dir']):
-            if not self.is_prerendered(filename):
-                post = self.create_post(directory, filename)
-                if 'date' in post:
-                    self.all_posts.append({'filename': filename,
-                                           'title':    post['title'],
-                                           'date':     post['date'],
-                                           'path':     post['path'],
-                                           'body':     post['body']})
+        posts = self.collect_posts(self.config['posts_dir'])
+
+        unrendered_posts = ((directory, filename)
+                            for directory, filename in posts
+                            if not self.is_prerendered(filename))
+
+        for post in unrendered_posts:
+            post = self.create_post(post)
+            if 'date' in post:
+                self.all_posts.append({'filename': post['filename'],
+                                       'title':    post['title'],
+                                       'date':     post['date'],
+                                       'path':     post['path'],
+                                       'body':     post['body']})
 
         self.all_posts = self.sort_posts_by_date(self.all_posts)
 
         if self.save:
             self.dump_rendered(self.config['prerender_file'])
+
+    def write_lookup_table(self):
+        output = {'lookup': self.lookup_table,
+                  'terms': self.all_search_terms}
+        with open('search.json', 'w') as f:
+            json.dump(output, f)
 
     def write_archive(self):
         if self.all_posts:
@@ -254,3 +284,4 @@ if __name__ == '__main__':
     s.write_archive()
     s.write_feed()
     s.copy_media()
+    s.write_lookup_table()
