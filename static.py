@@ -47,6 +47,7 @@ class StaticGenerator():
                     'title':    post['title'],
                     'date':     post['date'].strftime(self.config['date_format']),
                     'path':     post['path'],
+                    'leader':   post['leader'],
                     'body':     post['body']}
                   for post in self.all_posts]
         with open(json_file, 'w') as f:
@@ -109,9 +110,9 @@ class StaticGenerator():
         return _split_contents
 
     def parse_date(self, date_string):
-        """
+        '''
         returns: datetime with timezone in UTC
-        """
+        '''
         try:
             _date = datetime.strptime(date_string, self.config['date_format'])
             return _date.replace(tzinfo=timezone.utc)
@@ -133,13 +134,22 @@ class StaticGenerator():
         post['body'] = body
         if 'date' in post:
             post['date'] = self.parse_date(post['date'])
+            post['leader'] = self.parse_leader(body)
         return post
 
     def sort_posts_by_date(self, posts):
-        """
+        '''
         Relies on the posts input being a list of dictionaries with a date field
-        """
+        '''
         return sorted(posts, key=lambda post: post['date'], reverse=True)
+
+    def parse_leader(self, text):
+        '''
+        split out the "leader" or first paragraph of post for creating the
+        front-page (index.html)
+        '''
+        lead, *_ = text.lstrip().split('\n\n', maxsplit=1)
+        return lead
 
     def create_post(self, directory, filename):
         post_file = os.path.join(directory, filename)
@@ -147,6 +157,7 @@ class StaticGenerator():
         header_string, body = self.split_post(raw_text)
         post = self.parse_post_parts(header_string, body)
         post['body'] = self.markdown(post['body'])
+        post['leader'] = self.markdown(post['leader'])
         templated_html = self.templatize_post(post)
         relative_dir = re.sub(self.config['posts_dir'], '', directory, count=1)
 
@@ -173,7 +184,8 @@ class StaticGenerator():
                                            'title':    post['title'],
                                            'date':     post['date'],
                                            'path':     post['path'],
-                                           'body':     post['body']})
+                                           'body':     post['body'],
+                                           'leader':   post['leader']})
 
         self.all_posts = self.sort_posts_by_date(self.all_posts)
 
@@ -188,10 +200,23 @@ class StaticGenerator():
         else:
             raise ValueError("StaticGenerator has no posts to create archive")
 
+    def write_index(self):
+        if self.all_posts:
+            index = self.render_index()
+            index_path = os.path.join(self.config['output_dir'], 'index.html')
+            write_to_file(index, index_path)
+        else:
+            raise ValueError("StaticGenerator has no posts to create index")
+
+    # these two are nearly identical. "post_limit" should maybe be pulled up to
+    # the class level?
     def render_archive(self, template_name='archive.html'):
-        env = Environment(loader=FileSystemLoader(self.config['templates_dir']))
-        template = env.get_template(template_name)
+        template = self._env.get_template(template_name)
         return template.render(all_posts=self.all_posts)
+
+    def render_index(self, template_name='index.html'):
+        template = self._env.get_template(template_name)
+        return template.render(front_posts=self.all_posts[:10])
 
     def _feed_string(self, post_limit=10):
         recent_posts = self.all_posts[:post_limit]
@@ -252,5 +277,6 @@ if __name__ == '__main__':
 
     s.create_posts()
     s.write_archive()
+    s.write_index()
     s.write_feed()
     s.copy_media()

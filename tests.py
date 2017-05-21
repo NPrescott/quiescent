@@ -42,12 +42,12 @@ class StaticGeneratorTests(unittest.TestCase):
             self.s.split_post(bad_text)
 
     def test_split_post_length(self):
-        poorly_formatted_text = "===\n missing a header, post body okay"
+        poorly_formatted_text = "+++\n missing a header, post body okay"
         result = self.s.split_post(poorly_formatted_text)
         self.assertEqual(len(result), 2)
 
     def test_split_post_multiple(self):
-        extra_header_text = "===\n missing header\n===\nweird text"
+        extra_header_text = "+++\n missing header\n+++\nweird text"
         result = self.s.split_post(extra_header_text)
         self.assertEqual(len(result), 2)
 
@@ -65,12 +65,12 @@ class StaticGeneratorTests(unittest.TestCase):
             self.s.parse_post_parts(title_date_string, body_string)
 
     def test_parse_header_failure(self):
-        bad_header_text = "===\n missing header\n===\nweird text"
+        bad_header_text = "+++\n missing header\n+++\nweird text"
         with self.assertRaises(TypeError):
             self.s.parse_post_parts(bad_header_text)
 
     def test_parse_header_failure_message(self):
-        bad_header_text = "title some title\ndate 2016-01-01===\n missing header\n===\nweird text"
+        bad_header_text = "title some title\ndate 2016-01-01+++\n missing header\n+++\nweird text"
         body_string = "some long\npiece of text\nwould go here"
         with self.assertRaisesRegex(TypeError, "Improperly formatted header: .*"):
             self.s.parse_header(bad_header_text)
