@@ -34,7 +34,7 @@ class StaticGenerator():
     def __init__(self, config_file="config.json", save=False):
         self.save = save
         self.config = self.read_config(config_file)
-        self._separator = re.compile(r'^+++$', re.MULTILINE)
+        self._separator = re.compile(r'^\+\+\+$', re.MULTILINE)
         self.markdown = Markdown()
         self._env = Environment(
             loader=FileSystemLoader(self.config['templates_dir'])
