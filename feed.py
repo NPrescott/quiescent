@@ -40,7 +40,7 @@ def feed(all_posts, **config):
     link = ET.SubElement(feed, 'link')
     link.attrib['href'] = config['domain']
     feed_link = ET.SubElement(feed, 'link')
-    feed_link.attrib['href'] = urljoin(config['domain'], config['feed_link'])
+    feed_link.attrib['href'] = urljoin(config['domain'], config['feed link'])
     feed_link.attrib['rel'] = 'self'
     updated = ET.SubElement(feed, 'updated')
     updated.text = datetime.now(timezone.utc).isoformat()

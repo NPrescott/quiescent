@@ -27,7 +27,8 @@ logger = logging.getLogger(__name__)
 
 class Post():
 
-    def __init__(self, indir=None, outdir=None, directory=None, filename=None, template=None):
+    def __init__(self, indir=None, outdir=None, directory=None, filename=None,
+                 template=None):
         self.indir = indir
         self.outdir = outdir
         self.directory = directory

@@ -15,7 +15,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from os.path import join
+import configparser
 import argparse
 import logging
 import shutil
@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 
 
 class StaticGenerator():
-    def __init__(self, config_file="config.json"):
+    def __init__(self, config_file="config.ini"):
         self.config_file = config_file
         self.config = None
         self.all_posts = []
@@ -40,10 +40,11 @@ class StaticGenerator():
         self.post_template = None
 
     def configure(self):
-        with open(self.config_file) as f:
-            self.config = json.load(f)
+        self.config = configparser.ConfigParser(interpolation=None)
+        self.config.read(self.config_file)
+        self.config = self.config['STATIC']
         self.template_environment = Environment(
-            loader=FileSystemLoader(self.config['templates_dir'])
+            loader=FileSystemLoader(self.config['templates directory'])
         )
         self.post_template = self.template_environment.get_template('post.html')
 
@@ -60,8 +61,8 @@ class StaticGenerator():
     def find_media_directories(self, dirname):
         for root, directories, files in os.walk(dirname):
             for directory in directories:
-                if directory == self.config['media_dir']:
-                    yield join(root, directory)
+                if directory == self.config['media directory']:
+                    yield os.path.join(root, directory)
 
     def copy_media(self):
         '''
@@ -69,25 +70,25 @@ class StaticGenerator():
         every time (which has the nice effect of grabbing updated files with
         the same name). Thus far the time spent has been low.
         '''
-        input_dir = self.config['posts_dir']
-        out_dir = self.config['output_dir']
+        input_dir = self.config['posts directory']
+        out_dir = self.config['output directory']
         media_dirs = self.find_media_directories(input_dir)
         for each_dir in media_dirs:
-            relative_dest_dir = re.sub(input_dir, '', each_dir, count=1)
-            out_path = join(out_dir, relative_dest_dir)
+            relative_dest_dir = os.path.relpath(each_dir, input_dir)
+            out_path = os.path.join(out_dir, relative_dest_dir)
             os.makedirs(out_path, exist_ok=True)
             for filename in os.listdir(each_dir):
-                shutil.copy(join(each_dir, filename), out_path)
+                shutil.copy(os.path.join(each_dir, filename), out_path)
 
     @staticmethod
     def sort_posts_by_date(posts):
         return sorted(posts, key=lambda post: post.date, reverse=True)
 
     def process_posts(self):
-        for directory, filename in self.collect_posts(self.config['posts_dir']):
+        for directory, filename in self.collect_posts(self.config['posts directory']):
 
-            post = Post(indir=self.config['posts_dir'],
-                        outdir=self.config['output_dir'],
+            post = Post(indir=self.config['posts directory'],
+                        outdir=self.config['output directory'],
                         directory=directory,
                         filename=filename,
                         template=self.post_template)
@@ -101,7 +102,7 @@ class StaticGenerator():
     def write_archive(self):
         if self.all_posts:
             archive = self.render_archive()
-            archive_path = join(self.config['output_dir'], 'archive.html')
+            archive_path = os.path.join(self.config['output directory'], 'archive.html')
             write_to_file(archive, archive_path)
         else:
             raise ValueError("StaticGenerator has no posts to create archive")
@@ -109,7 +110,7 @@ class StaticGenerator():
     def write_index(self):
         if self.all_posts:
             index = self.render_index()
-            index_path = join(self.config['output_dir'], 'index.html')
+            index_path = os.path.join(self.config['output directory'], 'index.html')
             write_to_file(index, index_path)
         else:
             raise ValueError("StaticGenerator has no posts to create index")
@@ -119,12 +120,12 @@ class StaticGenerator():
         return template.render(**kwargs)
 
     def write_generated_files(self):
-        index_path = os.path.join(self.config['output_dir'], 'index.html')
+        index_path = os.path.join(self.config['output directory'], 'index.html')
         index = s.render_page('index.html', front_posts=self.all_posts[:10])
         with open(index_path, 'w') as f:
             f.write(index)
 
-        archive_path = os.path.join(self.config['output_dir'], 'archive.html')
+        archive_path = os.path.join(self.config['output directory'], 'archive.html')
         archive = s.render_page('archive.html', all_posts=self.all_posts)
         with open(archive_path, 'w') as f:
             f.write(archive)
@@ -138,7 +139,8 @@ class StaticGenerator():
     def write_feed(self):
         # feed is utf-8 bytes
         feed = self._feed_string()
-        output_path = join(self.config['output_dir'], self.config['feed_link'])
+        output_path = os.path.join(self.config['output directory'],
+                                  self.config['feed link'])
         with open(output_path, 'wb') as f:
             f.write(feed)
 
@@ -147,7 +149,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description=('Generate a collection of static HTML pages from a '
                      'collection of markdown documents'))
-    parser.add_argument('-c', '--config', default='config.json')
+    parser.add_argument('-c', '--config', default='config.ini')
 
     args = parser.parse_args()
     s = StaticGenerator(config_file=args.config)
