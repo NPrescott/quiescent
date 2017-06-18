@@ -24,14 +24,8 @@ templates and XML :(
 First pass here does the simplest thing and is relatively feature-less.
   - update times are reported in UTC with no offset
 
-TODO:
-  - write some tests against this. `feed` is stateful by default, which sucks
-  - clean up the weird argument passing through kwargs, that's going to be
-    confusing pretty quickly
-
 ----------------------------------------
 [0]: https://tools.ietf.org/html/rfc4287
-
 """
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
@@ -39,43 +33,41 @@ from urllib.parse import urljoin
 
 ET.register_namespace('', 'http://www.w3.org/2005/Atom')
 
-def feed(all_posts, **kwargs):
-    # TODO: how kludge is this? I mean, I *know* what it looks like, but it
-    # fixes the issue of attaching a namespace to the document
+def feed(all_posts, **config):
     feed = ET.Element('{http://www.w3.org/2005/Atom}feed')
     title = ET.SubElement(feed, 'title')
-    title.text = kwargs['name']
+    title.text = config['name']
     link = ET.SubElement(feed, 'link')
-    link.attrib['href'] = kwargs['domain']
+    link.attrib['href'] = config['domain']
     feed_link = ET.SubElement(feed, 'link')
-    feed_link.attrib['href'] = urljoin(kwargs['domain'], kwargs['feed_link'])
+    feed_link.attrib['href'] = urljoin(config['domain'], config['feed_link'])
     feed_link.attrib['rel'] = 'self'
     updated = ET.SubElement(feed, 'updated')
     updated.text = datetime.now(timezone.utc).isoformat()
     author = ET.SubElement(feed, 'author')
     name = ET.SubElement(author, 'name')
-    name.text = kwargs['author']
+    name.text = config['author']
     feed_id = ET.SubElement(feed, 'id')
-    feed_id.text = kwargs['domain']
+    feed_id.text = config['domain']
 
     for post in all_posts:
-        feed_entry(feed, **post, **kwargs)
+        feed_entry(feed, post, **config)
 
     return feed
 
-def feed_entry(parent_element, **kwargs):
+def feed_entry(parent_element, post, **config):
     entry = ET.SubElement(parent_element, 'entry')
     title = ET.SubElement(entry, 'title')
-    title.text = kwargs['title']
+    title.text = post.title
     link = ET.SubElement(entry, 'link')
-    link.attrib['href'] = urljoin(kwargs['domain'], kwargs['path'])
+    link.attrib['href'] = urljoin(config['domain'], post.path)
     entry_id = ET.SubElement(entry, 'id')
-    entry_id.text = urljoin(kwargs['domain'], kwargs['path'])
+    entry_id.text = urljoin(config['domain'], post.path)
     updated = ET.SubElement(entry, 'updated')
-    updated.text = kwargs['date'].isoformat()
+    updated.text = post.date.isoformat()
     content = ET.SubElement(entry, 'content')
     content.attrib['type'] = 'html'
-    content.text = kwargs['body']
+    content.text = post.body_markup
     return entry
 
 def render_feed(feed_element):

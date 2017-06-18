@@ -1,9 +1,0 @@
-{
-  "author": "Test Author",
-  "domain": "www.example.com",
-  "output_dir": "example/output/",
-  "posts_dir": "example/posts/",
-  "templates_dir": "example/templates/",
-  "date_format": "%Y-%m-%d",
-  "prerender_file": ".prerender"
-}

@@ -1,6 +1,0 @@
-<h1>Post Archive</h1>
-<ul>
-{% for post in all_posts %}
-  <li>{{ post.date.strftime('%Y-%m') }} <a href="{{ post.path }}">{{ post.title }}</a></li>
-{% endfor %}
-</ul>

@@ -14,111 +14,153 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import unittest
+from unittest import mock
 import datetime
+from jinja2 import Template
 
-from static import StaticGenerator, slugify
-from feed import feed, feed_entry
+from static import StaticGenerator
+from post import Post, slugify
 
 
 class StaticGeneratorTests(unittest.TestCase):
-    config_file = "example/config.json"
-    s = StaticGenerator(config_file)
+    def test_post_sorting(self):
+        earlier, later, latest = (Post(), Post(), Post())
+        earlier.parse('\ntitle: test\ndate: 2016-01-01\n+++\nfoo\n')
+        later.parse('\ntitle: test\ndate: 2017-01-01\n+++\nbar\n')
+        latest.parse('\ntitle: test\ndate: 2017-01-02\n+++\nbaz\n')
+        date_ordered = StaticGenerator().sort_posts_by_date([latest, earlier, later])
+        self.assertEqual(date_ordered, [latest, later, earlier])
 
-    def test_config(self):
-        config = self.s.read_config(self.config_file)
-        self.assertEqual(config["author"], "Test Author")
 
-    def test_parse_date_exception(self):
-        with self.assertRaises(TypeError):
-            self.s.parse_date("2016/01/01")
+class PostsTests(unittest.TestCase):
 
-    def test_parse_date(self):
-        result = self.s.parse_date("2016-01-01")
-        self.assertEqual(type(result), datetime.datetime)
+    def test_front_matter_parsing(self):
+        leading_space = '\n  title       :    test\ndate: 2017-01-01\n+++\n'
+        mixed_case = '\nTitle: test\nDate: 2017-01-01\n+++\n'
+        properly_formatted = '\ntitle: test\ndate: 2017-01-01\n+++\n'
+        for case in (leading_space, mixed_case, properly_formatted):
+            with self.subTest():
+                post = Post()
+                post.parse(case)
+                self.assertEqual(post.title, 'test')
 
-    def test_split_post_exception(self):
-        bad_text = "an improper post body"
-        with self.assertRaises(TypeError):
-            self.s.split_post(bad_text)
+    def test_front_matter_parsing_nongreedy(self):
+        excess_colons = '\ntitle:: test\ndate: 2017-01-01\n+++\n'
+        post = Post()
+        post.parse(excess_colons)
+        self.assertEqual(post.title, ': test')
 
-    def test_split_post_length(self):
-        poorly_formatted_text = "+++\n missing a header, post body okay"
-        result = self.s.split_post(poorly_formatted_text)
-        self.assertEqual(len(result), 2)
+    def test_front_matter_parsing_negative(self):
+        too_many = '\ntitle: test\ndate: 2017-01-01\n++++\n'
+        too_few = '\ntitle: test\ndate: 2017-01-01\n++\n'
+        post = Post()
+        for i in (too_many, too_few):
+            with self.subTest():
+                with self.assertRaises(ValueError):
+                    post.parse(i)
 
-    def test_split_post_multiple(self):
-        extra_header_text = "+++\n missing header\n+++\nweird text"
-        result = self.s.split_post(extra_header_text)
-        self.assertEqual(len(result), 2)
+    def test_date_parsing(self):
+        raw_text = '\ntitle: test\ndate: 2017-01-01\n+++\n'
+        post = Post()
+        post.parse(raw_text)
+        self.assertEqual(type(post.date), datetime.datetime)
 
-    def test_post_parts_header(self):
-        title_date_string = "title: a title\ndate: 2016-01-01"
-        body_string = "some long\npiece of text\nwould go here"
-        result = self.s.parse_post_parts(title_date_string, body_string)
-        self.assertTrue('title' in result)
-        self.assertTrue('date' in result)
+    def test_date_parsing_negative(self):
+        wrong_format = '\ntitle: test\ndate: 2017-31-01\n+++\n'
+        missing_date = '\ntitle: test\n+++\n'
+        post = Post()
+        for case in (wrong_format, missing_date):
+            with self.subTest():
+                with self.assertRaises(ValueError):
+                    post.parse(case)
 
-    def test_post_parts_misformatted(self):
-        title_date_string = "title: a title\n 2016-01-01" # missing 'date:'
-        body_string = "some long\npiece of text\nwould go here"
-        with self.assertRaises(TypeError):
-            self.s.parse_post_parts(title_date_string, body_string)
+    def test_leader_parsing(self):
+        leader = Post().parse_leader('\nfoo bar baz\n\nfoo bar baz\n')
+        self.assertEqual(leader, 'foo bar baz')
 
-    def test_parse_header_failure(self):
-        bad_header_text = "+++\n missing header\n+++\nweird text"
-        with self.assertRaises(TypeError):
-            self.s.parse_post_parts(bad_header_text)
+    def test_post_parsing_leader(self):
+        post = Post()
+        post.parse('\ntitle: test\ndate: 2017-01-01\n+++\nfoo \nfoo \n\nthe rest\n')
+        post.parse_leader(post.body)
+        self.assertEqual(post.leader, 'foo \nfoo ')
 
-    def test_parse_header_failure_message(self):
-        bad_header_text = "title some title\ndate 2016-01-01+++\n missing header\n+++\nweird text"
-        body_string = "some long\npiece of text\nwould go here"
-        with self.assertRaisesRegex(TypeError, "Improperly formatted header: .*"):
-            self.s.parse_header(bad_header_text)
+    def test_leader_parsing_single_paragraph(self):
+        leader = Post().parse_leader('\nfoo bar baz\n')
+        self.assertEqual(leader, 'foo bar baz')
 
-    def test_post_template(self):
-        post = {'title': 'amazing title',
-                'body': '<p>some long text</p>'}
-        result_html = self.s.templatize_post(post)
-        self.assertEqual(result_html, 'amazing title\n\n<p>some long text</p>')
+    def test_read_file_missing(self):
+        with self.assertLogs():
+            Post().read_file('2017', 'missing-post.md')
 
-    def test_post_template_has_date(self):
-        post = {'title': 'amazing title',
-                'date': datetime.datetime(2016, 1, 1, 0, 0),
-                'body': '<p>some long text</p>'}
-        result_html = self.s.templatize_post(post)
-        self.assertEqual(result_html,
-                         'amazing title\n\n2016-01-01\n\n<p>some long text</p>')
+    def test_format_output(self):
+        p = Post()
+        p.parse('\ntitle: test\ndate: 2017-01-01\n+++\n')
+        self.assertEqual(p.format_output(), 'test.html')
+
+    def test_templating(self):
+        '''
+        not a great test, mostly a wrapper around `render`. Should this do more
+        validation on the template? -- a bit overkill?
+        '''
+        t = Template('<div>{{post.body_markup}}</div>')
+        post = Post(template=t)
+        raw_text = '\ntitle: test\ndate: 2016-01-01\n+++\nfoo bar baz'
+        post.parse(raw_text)
+        post.render()
+        # not exactly pretty but the markdown parser includes some errant
+        # newlines here and there
+        self.assertEqual(post.markup, '<div><p>foo bar baz</p>\n</div>')
+
+    @mock.patch('post.os.makedirs')
+    def test_write_post(self, *args):
+        '''
+        I'm not sure how mock and patch work exactly...
+        '''
+        m = mock.mock_open()
+        with mock.patch('builtins.open', m):
+            post = Post(indir='posts', outdir='build', directory='posts/2017')
+            post.title = 'A Post Title'
+            post.markup = 'foo bar baz'
+            post.write_post()
+            m.assert_called_once_with('build/2017/a-post-title.html', 'w')
+            handle = m()
+            handle.write.assert_called_once_with('foo bar baz')
+
 
 class SlugifyTests(unittest.TestCase):
     def test_lowercase(self):
-        input_string = "This Is A Title"
-        self.assertEqual(slugify(input_string), "this-is-a-title")
+        self.assertEqual(
+            slugify('This Is A Title'),
+            'this-is-a-title')
 
     def test_punctuation(self):
-        first_string = "Contains: 3? illegal characters!"
-        self.assertEqual(slugify(first_string),
-                         "contains-3-illegal-characters")
+        self.assertEqual(
+            slugify('Contains: 3? illegal characters!'),
+            'contains-3-illegal-characters')
 
-        second_string = "What is 1% of 20% of a question mark?"
-        self.assertEqual(slugify(second_string), "what-is-1-of-20-of-a-question-mark")
-        
+        self.assertEqual(
+            slugify('What is 1% of 20% of a question mark?'),
+            'what-is-1-of-20-of-a-question-mark')
+
     def test_quotes(self):
-        input_string = "\"quoted phrase\" string's got an apostrophe"
-        self.assertEqual(slugify(input_string),
-                         "quoted-phrase-strings-got-an-apostrophe")
+        self.assertEqual(
+            slugify('\"quoted phrase\" string\'s got an apostrophe'),
+            'quoted-phrase-strings-got-an-apostrophe')
 
     def test_trailing_hyphens(self):
-        input_string = "This would be pretty braindead--"
-        self.assertEqual(slugify(input_string),
-                         "this-would-be-pretty-braindead")
+        self.assertEqual(
+            slugify('This would be pretty braindead--'),
+            'this-would-be-pretty-braindead')
 
     def test_unicode(self):
-        first_string = "Düsseldorf is a city in Germany"
-        self.assertEqual(slugify(first_string), "d%C3%BCsseldorf-is-a-city-in-germany")
+        self.assertEqual(
+            slugify('Düsseldorf is a city in Germany'),
+            'd%C3%BCsseldorf-is-a-city-in-germany')
 
-        second_string = "Let Over λ"
-        self.assertEqual(slugify(second_string), "let-over-%CE%BB")
+        self.assertEqual(
+            slugify('Let Over λ'),
+            'let-over-%CE%BB')
 
-class FeedTests(unittest.TestCase):
-    def test_nothing(self):
-        print("THERE ARE NO TESTS OF THE ATOM FEED!")
+
+if __name__ == '__main__':
+    unittest.main()
