@@ -40,13 +40,18 @@ class StaticGenerator():
         self.post_template = None
 
     def configure(self):
-        self.config = configparser.ConfigParser(interpolation=None)
-        self.config.read(self.config_file)
-        self.config = self.config['STATIC']
-        self.template_environment = Environment(
-            loader=FileSystemLoader(self.config['templates directory'])
-        )
-        self.post_template = self.template_environment.get_template('post.html')
+        try:
+            self.config = configparser.ConfigParser(interpolation=None)
+            self.config.read(self.config_file)
+            self.config = self.config['STATIC']
+            self.template_environment = Environment(
+                loader=FileSystemLoader(self.config['templates directory'])
+            )
+            self.post_template = self.template_environment.get_template('post.html')
+        except Exception as e:
+            raise Exception("An error occurred in initial configuration, do "
+                            "you have the necessary configuration file and "
+                            "templates?")
 
     @staticmethod
     def collect_posts(from_dir):

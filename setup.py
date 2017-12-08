@@ -22,4 +22,10 @@ setup(name="quiescent",
       entry_points={
       'console_scripts': ['quiescent=quiescent.command_line:main']
       },
+      classifiers=[
+          'License :: OSI Approved :: GNU General Public License v3 (GPLv3)',
+          'Programming Language :: Python :: 3 :: Only',
+          'Programming Language :: Python :: 3.6',
+          'Development Status :: 4 - Beta',
+      ],
       zip_safe=False)

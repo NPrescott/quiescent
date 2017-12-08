@@ -25,35 +25,21 @@ Usage
 -----
 
 The interface to the program is through the ``quiescent`` command, which takes
-an optional argument ``-c`` or ``--config``, to name a `configuration .ini <https://docs.python.org/3/library/configparser.html>`_ file other than the
+an optional argument ``-c`` or ``--config``, to name a `configuration .ini
+<https://docs.python.org/3/library/configparser.html>`_ file other than the
 default ``config.ini``.
 
 ::
 
    cd blog-dir/
-   quiescent   # equivalent to quiescent --config config.ini
+   quiescent --bootstrap  # initial configuration
+   quiescent              # equivalent to quiescent --config config.ini
 
-In order for the program to run as intended, the ``config.ini`` file requires
-the following entries, where the right-hand-side is appropriate for the site
-being generated (in the example below both ``date format`` and ``feed link``
-are configurable to whatever you choose and the values shown above are purely
-for reference.):
+In order for the program to run as intended, the ``config.ini`` file must be
+modified to suit the destination site.
 
-::
-
-   [STATIC]
-   domain =  
-   name =  
-   author =  
-   output directory =  
-   posts directory =  
-   media directory =  
-   templates directory =  
-   date format =  %Y-%m-%d
-   feed link =  feed.atom
-
-The templates directory refers to those files used as templates for the
-generated content and the following templates are required:
+The following templates are required and included in the ``bootstrap`` command
+upon initial configuration:
 
  - archive.html
  - base.html
@@ -63,7 +49,16 @@ generated content and the following templates are required:
 Tips for Writing
 ~~~~~~~~~~~~~~~~
 
-One important note to keep in mind when writing posts, the links used in
+All posts written require a title and a date using a specific format at the
+beginning of the markdown file. The format is as follows:
+
+::
+
+   title: <post title>
+   date: <must match the configured date format>
+   +++
+
+An important note to keep in mind when writing posts, the links used in
 referencing local media (images, style sheets, etc.) are used directly in the
 Atom feed, which may break relative URLs. A solution to this (and the author's
 recommendation) is to specify a base URL and link relative to that, so that
@@ -98,15 +93,15 @@ has a specific focus, with no plans to implement the following:
 Development, Testing
 ~~~~~~~~~~~~~~~~~~~~
 
-The project contains unittests which are runnable using the ``unittest`` module
-from the standard library.
+The project contains some unittests which are runnable using the ``setup.py``
+command and require no additional dependencies or configuration.
 
 ::
 
-   $ python -m unittest discover
+   $ python setup.py -q test
    ..................
    ----------------------------------------------------------------------
-   Ran 18 tests in 0.020s
+   Ran 18 tests in 0.018s
 
    OK
 
