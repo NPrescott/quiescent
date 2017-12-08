@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 
 
 class StaticGenerator():
-    def __init__(self, config_file="config.ini"):
+    def __init__(self, config_file=None):
         self.config_file = config_file
         self.config = None
         self.all_posts = []
