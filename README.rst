@@ -21,6 +21,13 @@ Quiescent has been built with `Jinja2 <http://jinja.pocoo.org/>`_ for
 templating, `Mistune <https://github.com/lepture/mistune>`_ for markdown
 parsing, and Python 3.6 (for ``f``-string formatting).
 
+Installation
+------------
+
+::
+
+   pip install quiescent
+
 Usage
 -----
 
