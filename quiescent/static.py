@@ -25,8 +25,8 @@ import re
 
 from jinja2 import Environment, FileSystemLoader
 
-from post import Post
-from feed import feed, render_feed
+from .post import Post
+from .feed import feed, render_feed
 
 logger = logging.getLogger(__name__)
 
@@ -107,26 +107,18 @@ class StaticGenerator():
         else:
             raise ValueError("StaticGenerator has no posts to create archive")
 
-    def write_index(self):
-        if self.all_posts:
-            index = self.render_index()
-            index_path = os.path.join(self.config['output directory'], 'index.html')
-            write_to_file(index, index_path)
-        else:
-            raise ValueError("StaticGenerator has no posts to create index")
-
     def render_page(self, template_name, **kwargs):
         template = self.template_environment.get_template(template_name)
         return template.render(**kwargs)
 
     def write_generated_files(self):
         index_path = os.path.join(self.config['output directory'], 'index.html')
-        index = s.render_page('index.html', front_posts=self.all_posts[:10])
+        index = self.render_page('index.html', front_posts=self.all_posts[:10])
         with open(index_path, 'w') as f:
             f.write(index)
 
         archive_path = os.path.join(self.config['output directory'], 'archive.html')
-        archive = s.render_page('archive.html', all_posts=self.all_posts)
+        archive = self.render_page('archive.html', all_posts=self.all_posts)
         with open(archive_path, 'w') as f:
             f.write(archive)
 
@@ -143,17 +135,3 @@ class StaticGenerator():
                                   self.config['feed link'])
         with open(output_path, 'wb') as f:
             f.write(feed)
-
-
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(
-        description=('Generate a collection of static HTML pages from a '
-                     'collection of markdown documents'))
-    parser.add_argument('-c', '--config', default='config.ini')
-
-    args = parser.parse_args()
-    s = StaticGenerator(config_file=args.config)
-    s.configure()
-    s.process_posts()
-    s.write_generated_files()
-    s.copy_media()

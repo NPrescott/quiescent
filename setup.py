@@ -18,4 +18,8 @@ setup(name="quiescent",
           'MarkupSafe >= 0.23',
           'mistune >= 0.7.3',
       ],
+      test_suite='quiescent.tests',
+      entry_points={
+      'console_scripts': ['quiescent=quiescent.command_line:main']
+      },
       zip_safe=False)

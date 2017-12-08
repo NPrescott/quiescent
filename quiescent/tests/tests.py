@@ -18,8 +18,8 @@ from unittest import mock
 import datetime
 from jinja2 import Template
 
-from static import StaticGenerator
-from post import Post, slugify
+from quiescent.static import StaticGenerator
+from quiescent.post import Post, slugify
 
 
 class StaticGeneratorTests(unittest.TestCase):
@@ -111,7 +111,7 @@ class PostsTests(unittest.TestCase):
         # newlines here and there
         self.assertEqual(post.markup, '<div><p>foo bar baz</p>\n</div>')
 
-    @mock.patch('post.os.makedirs')
+    @mock.patch('quiescent.post.os.makedirs')
     def test_write_post(self, *args):
         '''
         I'm not sure how mock and patch work exactly...
@@ -160,7 +160,3 @@ class SlugifyTests(unittest.TestCase):
         self.assertEqual(
             slugify('Let Over λ'),
             'let-over-%CE%BB')
-
-
-if __name__ == '__main__':
-    unittest.main()
