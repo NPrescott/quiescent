@@ -30,39 +30,43 @@ First pass here does the simplest thing and is relatively feature-less.
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 from urllib.parse import urljoin
+import logging
 
+
+logger = logging.getLogger(__name__)
 ET.register_namespace('', 'http://www.w3.org/2005/Atom')
 
 def feed(all_posts, **config):
-    feed = ET.Element('{http://www.w3.org/2005/Atom}feed')
-    title = ET.SubElement(feed, 'title')
-    title.text = config['name']
-    link = ET.SubElement(feed, 'link')
-    link.attrib['href'] = config['domain']
-    feed_link = ET.SubElement(feed, 'link')
-    feed_link.attrib['href'] = urljoin(config['domain'], config['feed link'])
-    feed_link.attrib['rel'] = 'self'
-    updated = ET.SubElement(feed, 'updated')
-    updated.text = datetime.now(timezone.utc).isoformat()
-    author = ET.SubElement(feed, 'author')
-    name = ET.SubElement(author, 'name')
-    name.text = config['author']
-    feed_id = ET.SubElement(feed, 'id')
-    feed_id.text = config['domain']
+    try:
+        feed = ET.Element('{http://www.w3.org/2005/Atom}feed')
+        title = ET.SubElement(feed, 'title')
+        title.text = config['name']
+        link = ET.SubElement(feed, 'link')
+        link.attrib['href'] = config['domain']
+        feed_link = ET.SubElement(feed, 'link')
+        feed_link.attrib['href'] = urljoin(config['domain'], config['feed link'])
+        feed_link.attrib['rel'] = 'self'
+        updated = ET.SubElement(feed, 'updated')
+        updated.text = datetime.now(timezone.utc).isoformat()
+        author = ET.SubElement(feed, 'author')
+        name = ET.SubElement(author, 'name')
+        name.text = config['author']
+        feed_id = ET.SubElement(feed, 'id')
+        feed_id.text = config['domain']
+        for post in all_posts:
+            feed_entry(feed, post, domain=config['domain'])
+        return feed
+    except KeyError as e:
+        raise KeyError(f"Configuration missing entry for: {e}")
 
-    for post in all_posts:
-        feed_entry(feed, post, **config)
-
-    return feed
-
-def feed_entry(parent_element, post, **config):
+def feed_entry(parent_element, post, domain=None):
     entry = ET.SubElement(parent_element, 'entry')
     title = ET.SubElement(entry, 'title')
     title.text = post.title
     link = ET.SubElement(entry, 'link')
-    link.attrib['href'] = urljoin(config['domain'], post.path)
+    link.attrib['href'] = urljoin(domain, post.path)
     entry_id = ET.SubElement(entry, 'id')
-    entry_id.text = urljoin(config['domain'], post.path)
+    entry_id.text = urljoin(domain, post.path)
     updated = ET.SubElement(entry, 'updated')
     updated.text = post.date.isoformat()
     content = ET.SubElement(entry, 'content')
