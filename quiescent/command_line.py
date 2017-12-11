@@ -14,8 +14,11 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import argparse
+import logging
 
 from .static import StaticGenerator
+
+logger = logging.getLogger(__name__)
 
 def main():
     parser = argparse.ArgumentParser(
@@ -40,7 +43,7 @@ def main():
 def bootstrap():
     import os
 
-    config = """
+    config = 'config.ini', """
 [STATIC]
 domain =
 name =
@@ -53,7 +56,7 @@ date format = %Y-%m-%d
 feed link = feed.atom
 """.lstrip()
 
-    archive = """
+    archive = 'templates/archive.html', """
 {% extends "base.html" %}
 {% block content %}
 {% for post in all_posts %}
@@ -62,7 +65,7 @@ feed link = feed.atom
 {% endblock %}
 """.lstrip()
 
-    base = """
+    base = 'templates/base.html', """
 <!DOCTYPE html>
 <html>
   <head>
@@ -76,7 +79,7 @@ feed link = feed.atom
 </html>
 """.lstrip()
 
-    post = """
+    post = 'templates/post.html', """
 {% extends "base.html" %}
 {% block content %}
 {{ post.title }}
@@ -84,7 +87,7 @@ feed link = feed.atom
 {% endblock %}
 """.lstrip()
 
-    index = """
+    index = 'templates/index.html', """
 {% extends "base.html" %}
 {% block content %}
 {% for post in front_posts %}
@@ -94,21 +97,15 @@ feed link = feed.atom
 {% endblock %}
 """.lstrip()
 
-    os.makedirs('templates')
-    os.makedirs('posts')
-    os.makedirs('build')
+    for directory in ('templates', 'posts', 'build'):
+        try:
+            os.makedirs(directory)
+        except Exception:
+            logger.warning(f'{directory} directory already exists')
 
-    with open('config.ini', 'x') as f:
-        f.write(config)
-
-    with open('templates/base.html', 'x') as f:
-        f.write(base)
-
-    with open('templates/index.html', 'x') as f:
-        f.write(index)
-
-    with open('templates/archive.html', 'x') as f:
-        f.write(archive)
-
-    with open('templates/post.html', 'x') as f:
-        f.write(post)
+    for each_file, template in (config, base, index, archive, post):
+        try:
+            with open(each_file, 'x') as f:
+                f.write(template)
+        except FileExistsError:
+            logger.warning(f'{each_file} already exists')
