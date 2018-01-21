@@ -101,8 +101,8 @@ class StaticGenerator:
             with open(file_path) as f:
                 text = f.read()
             try:
-                relative_path = os.path.relpath(directory, self.posts_dir)
-                post = Post(relative_path=relative_path).parse(text)
+                relative_dir = os.path.relpath(directory, self.posts_dir)
+                post = Post(relative_dir=relative_dir).parse(text)
                 self.all_posts.append(post)
             except ValueError as e:
                 logger.warning(f'Failed to create post: {post}\n\t{e}')
@@ -115,7 +115,7 @@ class StaticGenerator:
     def write_generated_files(self):
         for post in self.all_posts:
             post_page = self.render_page(self.post_template, post=post)
-            output_tree = os.path.join(self.output_dir, os.path.dirname(post.path))
+            output_tree = os.path.join(self.output_dir, post.relative_dir)
             # reconstitute the input tree in the output directory
             os.makedirs(output_tree, exist_ok=True)
             output_path = os.path.join(self.output_dir, post.path)

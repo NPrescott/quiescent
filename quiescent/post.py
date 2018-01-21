@@ -25,8 +25,8 @@ from mistune import Markdown
 @functools.total_ordering
 class Post:
 
-    def __init__(self, relative_path=''):
-        self.relative_path = relative_path
+    def __init__(self, relative_dir=''):
+        self.relative_dir = relative_dir
         self.path = None
         self.title = None
         self.date = None
@@ -55,11 +55,11 @@ class Post:
             raw_text: string contents of a post file
         '''
         try:
-            post = Post()
+            post = Post(relative_dir=self.relative_dir)
             meta, body = self._split(raw_text)
             post.title = meta['title']
             post.slug = slugify(post.title)
-            post.path = os.path.join(self.relative_path, f'{post.slug}.html')
+            post.path = os.path.join(self.relative_dir, f'{post.slug}.html')
             post.date = self._parse_date(meta['date'])
             post.body = self.markdown(body)
             post.leader = self.markdown(self._parse_leader(body))
