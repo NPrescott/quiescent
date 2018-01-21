@@ -15,128 +15,135 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from datetime import datetime, timezone
 import configparser
 import argparse
 import logging
 import shutil
 import json
+import sys
 import os
 import re
 
 from jinja2 import Environment, FileSystemLoader
 
 from .post import Post
-from .feed import feed, render_feed
+from .feed import feed
 
 logger = logging.getLogger(__name__)
 
 
-class StaticGenerator():
+class StaticGenerator:
     def __init__(self, config_file=None):
         self.config_file = config_file
         self.config = None
         self.all_posts = []
-        self.template_environment = None
-        self.post_template = None
+        self.index_template = 'index.html'
+        self.archive_template = 'archive.html'
+        self.post_template = 'post.html'
 
     def configure(self):
         try:
-            self.config = configparser.ConfigParser(interpolation=None)
-            self.config.read(self.config_file)
-            self.config = self.config['STATIC']
+            config = configparser.ConfigParser(interpolation=None)
+            config.read(self.config_file)
+            self.config = config['STATIC']
+            self.output_dir = self.config['output directory']
+            self.posts_dir = self.config['posts directory']
+            self.media_dir = self.config['media directory']
+            self.author = self.config['author']
+            self.domain = self.config['domain']
+            self.feed_name = self.config['name']
+            self.feed_link = self.config['feed link']
             self.template_environment = Environment(
                 loader=FileSystemLoader(self.config['templates directory'])
             )
-            self.post_template = self.template_environment.get_template('post.html')
         except Exception as e:
-            raise Exception("An error occurred in initial configuration, do "
-                            "you have the necessary configuration file and "
-                            "templates?")
+            logger.error("An error occurred in initial configuration, do "
+                         "you have the necessary configuration file and "
+                         "templates?\n\tTry using the --boostrap command")
+            sys.exit(1)
 
-    @staticmethod
-    def collect_posts(from_dir):
+    def collect_posts(self, from_dir):
         '''
-        Walk the directory containing posts and return any with a `.md` suffix
+        Walk the directory containing posts and return any with a `.md` suffix as a
+        tuple of (directory, filename)
         '''
+        post_files = []
         for root, _, files in os.walk(from_dir):
             for _file in files:
                 if _file.endswith('.md'):
-                    yield (root, _file)
+                    post_files.append((root, _file))
+        return post_files
 
-    def find_media_directories(self, dirname):
-        for root, directories, files in os.walk(dirname):
-            for directory in directories:
-                if directory == self.config['media directory']:
-                    yield os.path.join(root, directory)
+    def find_media_directories(self, directory, media_directory):
+        directory_paths = []
+        for root, directories, _ in os.walk(directory):
+            for dir in directories:
+                if dir == media_directory:
+                    directory_paths.append(os.path.join(root, dir))
+        return directory_paths
 
     def copy_media(self):
-        '''
-        There may be some potential for optimization here, everything is copied
-        every time (which has the nice effect of grabbing updated files with
-        the same name). Thus far the time spent has been low.
-        '''
-        input_dir = self.config['posts directory']
-        out_dir = self.config['output directory']
-        media_dirs = self.find_media_directories(input_dir)
+        # There may be some potential for optimization here, everything is
+        # copied every time, which has the nice effect of grabbing updated
+        # files with the same name
+        media_dirs = self.find_media_directories(self.posts_dir, self.media_dir)
         for each_dir in media_dirs:
-            relative_dest_dir = os.path.relpath(each_dir, input_dir)
-            out_path = os.path.join(out_dir, relative_dest_dir)
+            relative_dest_dir = os.path.relpath(each_dir, self.posts_dir)
+            out_path = os.path.join(self.output_dir, relative_dest_dir)
             os.makedirs(out_path, exist_ok=True)
             for filename in os.listdir(each_dir):
                 shutil.copy(os.path.join(each_dir, filename), out_path)
 
-    @staticmethod
-    def sort_posts_by_date(posts):
-        return sorted(posts, key=lambda post: post.date, reverse=True)
-
     def process_posts(self):
-        for directory, filename in self.collect_posts(self.config['posts directory']):
-
-            post = Post(indir=self.config['posts directory'],
-                        outdir=self.config['output directory'],
-                        directory=directory,
-                        filename=filename,
-                        template=self.post_template)
+        for directory, filename in self.collect_posts(self.posts_dir):
+            file_path = os.path.join(directory, filename)
+            with open(file_path) as f:
+                text = f.read()
             try:
-                post.create_post()
+                relative_dir = os.path.relpath(directory, self.posts_dir)
+                post = Post(relative_dir=relative_dir).parse(text)
                 self.all_posts.append(post)
             except ValueError as e:
-                logger.warning(f'Failed to create post: {post}\n{e}')
-        self.all_posts = self.sort_posts_by_date(self.all_posts)
-
-    def write_archive(self):
-        if self.all_posts:
-            archive = self.render_archive()
-            archive_path = os.path.join(self.config['output directory'], 'archive.html')
-            write_to_file(archive, archive_path)
-        else:
-            raise ValueError("StaticGenerator has no posts to create archive")
+                logger.warning(f'Failed to create post: {post}\n\t{e}')
+        self.all_posts = sorted(self.all_posts)
 
     def render_page(self, template_name, **kwargs):
         template = self.template_environment.get_template(template_name)
         return template.render(**kwargs)
 
     def write_generated_files(self):
-        index_path = os.path.join(self.config['output directory'], 'index.html')
-        index = self.render_page('index.html', front_posts=self.all_posts[:10])
+        for post in self.all_posts:
+            post_page = self.render_page(self.post_template, post=post)
+            output_tree = os.path.join(self.output_dir, post.relative_dir)
+            # reconstitute the input tree in the output directory
+            os.makedirs(output_tree, exist_ok=True)
+            output_path = os.path.join(self.output_dir, post.path)
+            with open(output_path, 'w') as f:
+                f.write(post_page)
+
+        index_path = os.path.join(self.output_dir, self.index_template)
+        index = self.render_page(self.index_template,
+                                 front_posts=self.all_posts[:10])
         with open(index_path, 'w') as f:
             f.write(index)
 
-        archive_path = os.path.join(self.config['output directory'], 'archive.html')
-        archive = self.render_page('archive.html', all_posts=self.all_posts)
+        archive_path = os.path.join(self.output_dir, self.archive_template)
+        archive = self.render_page(self.archive_template,
+                                   all_posts=self.all_posts)
         with open(archive_path, 'w') as f:
             f.write(archive)
 
         self.write_feed()
 
-    def _feed_string(self, post_limit=10):
+    def write_feed(self, post_limit=10):
         recent_posts = self.all_posts[:post_limit]
-        return render_feed(feed(recent_posts, **self.config))
-
-    def write_feed(self):
-        # feed is utf-8 bytes
-        feed = self._feed_string()
-        output_path = os.path.join(self.config['output directory'],
-                                  self.config['feed link'])
+        feed_string = feed(recent_posts,
+                           date=datetime.now(timezone.utc),
+                           name=self.feed_name,
+                           domain=self.domain,
+                           feed_link=self.feed_link,
+                           feed_author=self.author)
+        output_path = os.path.join(self.output_dir, self.feed_link)
         with open(output_path, 'wb') as f:
-            f.write(feed)
+            f.write(feed_string.encode())

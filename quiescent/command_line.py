@@ -83,7 +83,7 @@ feed link = feed.atom
 {% extends "base.html" %}
 {% block content %}
 {{ post.title }}
-{{ post.body_markup }}
+{{ post.body }}
 {% endblock %}
 """.lstrip()
 

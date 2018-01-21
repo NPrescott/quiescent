@@ -14,26 +14,20 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from datetime import datetime, timezone
-import logging
-import urllib
+import functools
+import urllib.parse
 import os
 import re
 
 from mistune import Markdown
 
 
-logger = logging.getLogger(__name__)
+@functools.total_ordering
+class Post:
 
-
-class Post():
-
-    def __init__(self, indir=None, outdir=None, directory=None, filename=None,
-                 template=None):
-        self.indir = indir
-        self.outdir = outdir
-        self.directory = directory
-        self.filename = filename
-        self.template = template
+    def __init__(self, relative_dir=''):
+        self.relative_dir = relative_dir
+        self.path = None
         self.title = None
         self.date = None
         self.leader = None
@@ -41,94 +35,78 @@ class Post():
         self.markup = None
         self.markdown = Markdown()
 
-    def __repr__(self): # pragma: no cover
-        return f'<Post: {self.filename}>'
+    def __gt__(self, other):
+        '''used for sorting, reverse chronologically'''
+        return other.date > self.date
 
-    def read_file(self, directory, filename):
+    def __eq__(self, other):
         '''
-        How can skipping be best accomplished here? This doesn't actually work as
-        intended because reading the non-existent file will throw a TypeError
-        later in the procedure/chain. Need to bail out of this particular Post
-        early.
+        this may be a bit ambiguous, but semantically, it seems like a post is
+        "equal" to another if the text body is the same
         '''
-        post_file = os.path.join(directory, filename)
-        try:
-            with open(post_file) as f:
-                return f.read()
-        except FileNotFoundError:
-            logger.warning(f'{post_file} was not found, skipping!')
+        return self.body == other.body
 
-    def format_output(self):
-        filename = slugify(self.title)
-        return f'{filename}.html'
-
-    def write_post(self):
-        '''
-        Is the call to `makedirs` is a little non-obvious? This method is very -
-        stateful(?) - and requires a lot of mocking/patching to test
-        '''
-        relative_path = os.path.relpath(self.directory, self.indir)
-        self.path = os.path.join(relative_path, self.format_output())
-        output_path = os.path.join(self.outdir, self.path)
-        os.makedirs(os.path.dirname(output_path), exist_ok=True)
-        with open(output_path, 'w') as f:
-            f.write(self.markup)
+    def __repr__(self):
+        return f'<Post: {self.title}, {self.date}>'
 
     def parse(self, raw_text):
         '''
-        Parse a raw post into "frontmatter" (metadata) and the post body, splitting
-        on an unlikely character sequence '+++'
         Args:
             raw_text: string contents of a post file
         '''
         try:
-            frontmatter, body = re.split(r'^\+\+\+$', raw_text,
-                                         maxsplit=1, flags=re.M)
-            lines = (frontmatter.strip().split('\n'))
-            line_pairs = (line.split(':', maxsplit=1) for line in lines)
-            metadata = {key.strip().lower(): value.strip()
-                        for key, value in line_pairs}
-            self.title = metadata['title']
-            self.date = (datetime
-                         .strptime(metadata['date'], '%Y-%m-%d')
-                         .replace(tzinfo=timezone.utc))
-            self.body = body.strip()
-            self.leader = self.parse_leader(self.body)
+            post = Post(relative_dir=self.relative_dir)
+            meta, body = self._split(raw_text)
+            post.title = meta['title']
+            post.slug = slugify(post.title)
+            post.path = os.path.join(self.relative_dir, f'{post.slug}.html')
+            post.date = self._parse_date(meta['date'])
+            post.body = self.markdown(body)
+            post.leader = self.markdown(self._parse_leader(body))
+            return post
         except (ValueError, KeyError, TypeError) as e:
             raise ValueError(f'Unable to parse post from:\n{raw_text[:50]}')
 
-    def parse_leader(self, post_body):
+    @staticmethod
+    def _split(text):
+        '''
+        Take as input text comprising a post file:
+
+            title: some text
+            date: 2015-12-01
+            ++++
+            ... post contents ...
+
+        and return a tuple of a dictionary of the top "metadata" kv-pairs and
+        a string of the rest of the file
+        '''
+        frontmatter, body = re.split(r'^\+\+\+$', text, maxsplit=1, flags=re.M)
+        lines = frontmatter.strip().split('\n')
+        line_pairs = (line.split(':', maxsplit=1) for line in lines)
+        meta = {key.strip().lower(): value.strip()
+                for key, value in line_pairs}
+        return meta, body
+
+    @staticmethod
+    def _parse_date(text, date_spec='%Y-%m-%d'):
+        return (datetime
+                .strptime(text, date_spec)
+                .replace(tzinfo=timezone.utc))
+
+    @staticmethod
+    def _parse_leader(post_body):
         '''
         I refer to the first paragraph of a post as a "leader" and like to extract
         it out automatically to generate an index page. Small idiosyncracy,
         Python's `re` module won't split on a zero-width match (e.g. `^$`) so
         we're splitting on the first two newlines ¯\_(ツ)_/¯
         Args:
-            post_body: string/text of a post, stripped of frontmatter
+            post_body: string, a post, stripped of frontmatter
         '''
-        first_paragraph, *_ = post_body.strip().split('\n\n', maxsplit=1)
+        first_paragraph, *_ = (post_body
+                               .strip() # excess whitespace
+                               .split('\n\n', maxsplit=1))
         return first_paragraph
-
-    def render(self):
-        '''
-        a bit of a catch-all method
-        '''
-        self.leader = self.markdown(self.leader)
-        self.body_markup = self.markdown(self.body)
-        self.markup = self.template.render(post=self)
-        return self.markup
-
-    def create_post(self):
-        '''
-        wrapper method to simplify using the Post class from the Static class
-        '''
-        try:
-            self.body = self.read_file(self.directory, self.filename)
-            self.parse(self.body)
-            self.render()
-            self.write_post()
-        except (ValueError, TypeError) as e:
-            raise ValueError(e)
 
 
 def slugify(text):
@@ -145,7 +123,7 @@ def slugify(text):
     QUOTES = re.compile(r'[\"\']')
     MULTIPLE_DASH = re.compile(r'-+')
     NOT_CHAR = re.compile(r'[\W]')
-
+    # my kingdom for a pipe operator or a threading macro...
     _string = QUOTES.sub('', text)
     _string = _string.lower()
     _string = NOT_CHAR.sub('-', _string)
