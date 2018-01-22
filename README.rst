@@ -17,8 +17,7 @@ the only parts of the resulting site that are automatically generated are the
 `Atom feed <https://tools.ietf.org/html/rfc4287>`_, an index page, and an
 *archive* of all posts.
 
-Quiescent has been built with `Jinja2 <http://jinja.pocoo.org/>`_ for
-templating, `Mistune <https://github.com/lepture/mistune>`_ for markdown
+Quiescent uses `Mistune <https://github.com/lepture/mistune>`_ for markdown
 parsing, and Python 3.6 (for ``f``-string formatting).
 
 Installation
@@ -106,9 +105,9 @@ command and require no additional dependencies or configuration.
 ::
 
    $ python setup.py -q test
-   ..................
+   ....................................
    ----------------------------------------------------------------------
-   Ran 18 tests in 0.018s
+   Ran 36 tests in 0.012s
 
    OK
 

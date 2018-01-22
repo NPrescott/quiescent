@@ -49,7 +49,7 @@ class FeedTests(unittest.TestCase):
 
         p = Post()
         p.title = 'First Post'
-        p.date = datetime.strptime('12-2017-01', '%m-%Y-%d')
+        p._date = datetime.strptime('12-2017-01', '%m-%Y-%d')
         p.body = '<h1>not much here</h1>'
 
         f = feed([p],
