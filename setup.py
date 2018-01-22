@@ -14,8 +14,6 @@ setup(name="quiescent",
       license='GPL',
       packages=['quiescent'],
       install_requires=[
-          'Jinja2 >= 2.8',
-          'MarkupSafe >= 0.23',
           'mistune >= 0.7.3',
       ],
       test_suite='quiescent.tests',

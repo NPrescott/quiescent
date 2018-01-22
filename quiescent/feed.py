@@ -1,4 +1,4 @@
-# Copyright 2017 Nolan Prescott
+# Copyright 2018 Nolan Prescott
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -54,7 +54,7 @@ def _feed_entry(parent_element, post, domain=None):
     entry_id = ET.SubElement(entry, 'id')
     entry_id.text = urljoin(domain, post.path)
     updated = ET.SubElement(entry, 'updated')
-    updated.text = post.date.isoformat()
+    updated.text = post._date.isoformat()
     content = ET.SubElement(entry, 'content')
     content.attrib['type'] = 'html'
     content.text = post.body

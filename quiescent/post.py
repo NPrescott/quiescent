@@ -1,4 +1,4 @@
-# Copyright 2017 Nolan Prescott
+# Copyright 2018 Nolan Prescott
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -29,6 +29,7 @@ class Post:
         self.relative_dir = relative_dir
         self.path = None
         self.title = None
+        self._date = None
         self.date = None
         self.leader = None
         self.body = None
@@ -37,7 +38,7 @@ class Post:
 
     def __gt__(self, other):
         '''used for sorting, reverse chronologically'''
-        return other.date > self.date
+        return other._date > self._date
 
     def __eq__(self, other):
         '''
@@ -60,7 +61,8 @@ class Post:
             post.title = meta['title']
             post.slug = slugify(post.title)
             post.path = os.path.join(self.relative_dir, f'{post.slug}.html')
-            post.date = self._parse_date(meta['date'])
+            post._date = self._parse_date(meta['date'])
+            post.date = post._date.strftime('%Y-%m-%d')
             post.body = self.markdown(body)
             post.leader = self.markdown(self._parse_leader(body))
             return post

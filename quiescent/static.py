@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# Copyright 2017 Nolan Prescott
+# Copyright 2018 Nolan Prescott
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -25,10 +25,9 @@ import sys
 import os
 import re
 
-from jinja2 import Environment, FileSystemLoader
-
 from .post import Post
 from .feed import feed
+from .templite import Templite
 
 logger = logging.getLogger(__name__)
 
@@ -54,9 +53,7 @@ class StaticGenerator:
             self.domain = self.config['domain']
             self.feed_name = self.config['name']
             self.feed_link = self.config['feed link']
-            self.template_environment = Environment(
-                loader=FileSystemLoader(self.config['templates directory'])
-            )
+            self.template_dir = self.config['templates directory']
         except Exception as e:
             logger.error("An error occurred in initial configuration, do "
                          "you have the necessary configuration file and "
@@ -109,8 +106,11 @@ class StaticGenerator:
         self.all_posts = sorted(self.all_posts)
 
     def render_page(self, template_name, **kwargs):
-        template = self.template_environment.get_template(template_name)
-        return template.render(**kwargs)
+        template_file = os.path.join(self.template_dir, template_name)
+        with open(template_file) as f:
+            template_text = f.read()
+        template = Templite(template_text)
+        return template.render(kwargs)
 
     def write_generated_files(self):
         for post in self.all_posts:
